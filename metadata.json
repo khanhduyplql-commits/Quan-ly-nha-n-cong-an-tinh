@@ -1,0 +1,8 @@
+{
+  "name": "Nha an cong an tinh phien ban 2",
+  "description": "Hệ thống POS bán hàng & thu ngân tại quầy cho Nhà ăn Công an tỉnh, tự động đẩy phiếu thu vào Sổ Quỹ Thu - Chi, đồng bộ màn hình bếp KDS và quản lý sơ đồ bàn.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
