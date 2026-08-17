@@ -17,11 +17,12 @@ import {
   Wallet,
   Receipt,
   Printer,
-  DollarSign
+  DollarSign,
+  AlertTriangle
 } from 'lucide-react';
 
 export const TechGuide: React.FC = () => {
-  const [activeSection, setActiveSection] = useState<'workflow' | 'pos_cashflow' | 'architecture' | 'database' | 'security' | 'code'>('workflow');
+  const [activeSection, setActiveSection] = useState<'workflow' | 'pos_cashflow' | 'architecture' | 'database' | 'security' | 'code' | 'cloudflare_guide'>('workflow');
   const [copiedCodeId, setCopiedCodeId] = useState<string | null>(null);
 
   const handleCopy = (id: string, text: string) => {
@@ -186,6 +187,7 @@ CREATE TABLE cash_transactions (
           { id: 'database' as const, label: '4. Cấu Trúc Database PostgreSQL', icon: Database },
           { id: 'security' as const, label: '5. Thanh Toán VietQR & Bảo Mật', icon: ShieldCheck },
           { id: 'code' as const, label: '6. Mã Nguồn Mẫu Express API', icon: Code2 },
+          { id: 'cloudflare_guide' as const, label: '7. Triển Khai Cloudflare & Sửa Lỗi Tín Hiệu', icon: Sparkles },
         ].map(tab => {
           const Icon = tab.icon;
           const isSelected = activeSection === tab.id;
@@ -437,6 +439,100 @@ CREATE TABLE cash_transactions (
             <pre className="bg-stone-900 text-stone-200 p-4 rounded-2xl font-mono text-2xs overflow-x-auto max-h-[450px]">
               {sampleServerCode}
             </pre>
+          </div>
+        )}
+
+        {/* TAB 7: CLOUDFLARE & REAL-TIME LIVE SYNC GUIDE */}
+        {activeSection === 'cloudflare_guide' && (
+          <div className="space-y-6">
+            <div className="border-b border-stone-100 pb-4">
+              <h2 className="text-lg font-black text-stone-900 flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-amber-600" />
+                <span>Hướng Dẫn Triển Khai Cloudflare & Sửa Lỗi Tín Hiệu Trực Tiếp</span>
+              </h2>
+              <p className="text-xs text-stone-500 mt-1">
+                Giải pháp toàn diện cho hiện tượng xuất web lên Cloudflare báo tín hiệu không trực tiếp.
+              </p>
+            </div>
+
+            {/* Why this happens explanation banner */}
+            <div className="p-4 sm:p-5 rounded-2xl bg-amber-50 border border-amber-200 text-xs space-y-3">
+              <h3 className="font-extrabold text-amber-900 flex items-center gap-2 text-sm">
+                <AlertTriangle className="w-4 h-4 text-amber-700" />
+                <span>1. Nguyên nhân vì sao xuất trên Cloudflare báo không trực tiếp?</span>
+              </h3>
+              <div className="space-y-2 text-amber-900/90 leading-relaxed text-2xs sm:text-xs">
+                <p>
+                  • <strong>Cloudflare Pages là máy chủ chứa file tĩnh (Static SPA)</strong>: Khi xuất bản (deploy) dự án lên Cloudflare Pages thông qua thư mục <code className="bg-amber-100 px-1.5 py-0.5 rounded font-mono font-bold">dist/</code>, Cloudflare chỉ phân phối HTML/JS/CSS. Các đường dẫn API máy chủ cục bộ như <code className="bg-amber-100 px-1.5 py-0.5 rounded font-mono font-bold">/api/state</code> hay <code className="bg-amber-100 px-1.5 py-0.5 rounded font-mono font-bold">/api/events</code> của Node.js không tự động chạy trên Cloudflare Pages nếu không có Worker/Backend riêng.
+                </p>
+                <p>
+                  • <strong>Cloudflare Buffer / Proxy ngắt luồng SSE</strong>: Cloudflare mặc định bật cơ chế nén và đệm phản hồi (Response Buffering), khiến các kết nối dòng sự kiện liên tục (Server-Sent Events / SSE) bị giữ lại thay vì truyền tín hiệu tức thì.
+                </p>
+                <p>
+                  • <strong>Tính năng "Rocket Loader" của Cloudflare</strong>: Tự động tải bất đồng bộ các đoạn mã JavaScript khiến kết nối Realtime bị trễ hoặc khởi động sai thứ tự.
+                </p>
+              </div>
+            </div>
+
+            {/* Solution & 3-Step Setup */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+              <div className="p-4 border border-stone-200 rounded-2xl bg-white space-y-2.5">
+                <div className="flex items-center gap-2 text-emerald-800 font-extrabold">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  <span>Giải pháp 1: Cơ chế Kênh Cloud Relay Đã Tự Động Kích Hoạt</span>
+                </div>
+                <p className="text-stone-600 text-2xs leading-relaxed">
+                  Hệ thống đã tích hợp sẵn kênh <strong>Cloud Realtime Relay đa tầng (Global PubSub SSE + Web BroadcastChannel + Local P2P)</strong>. Khi chạy trên Cloudflare:
+                </p>
+                <ul className="list-disc pl-4 text-2xs text-stone-600 space-y-1">
+                  <li>Thu ngân tạo đơn tại quầy sẽ tự động phát tín hiệu lên đám mây toàn cầu.</li>
+                  <li>Màn hình Bếp (KDS) và Sơ đồ bàn ăn trên mọi thiết bị (kể cả điện thoại 4G) nhận đơn tức thì mà không phụ thuộc vào cổng Node.js nội bộ.</li>
+                  <li>Đèn tín hiệu sẽ tự động nhận diện và chuyển sang <strong>"Trực Tiếp (Cloud Relay)"</strong> màu xanh.</li>
+                </ul>
+              </div>
+
+              <div className="p-4 border border-stone-200 rounded-2xl bg-white space-y-2.5">
+                <div className="flex items-center gap-2 text-stone-900 font-extrabold">
+                  <Server className="w-4 h-4 text-amber-600" />
+                  <span>Giải pháp 2: Cấu hình chuẩn trên Cloudflare Dashboard</span>
+                </div>
+                <p className="text-stone-600 text-2xs leading-relaxed">
+                  Nếu bạn sử dụng tên miền qua Cloudflare hoặc Cloudflare Tunnel:
+                </p>
+                <div className="bg-stone-50 p-2.5 rounded-xl border border-stone-200 text-2xs font-mono space-y-1">
+                  <p>1. <strong>Network</strong>: Bật <strong>WebSockets: ON</strong> và <strong>gRPC: ON</strong></p>
+                  <p>2. <strong>Speed → Optimization</strong>: Tắt <strong>Rocket Loader (OFF)</strong></p>
+                  <p>3. <strong>Rules → Page Rules</strong>: Thêm quy tắc cho <code className="text-amber-700">*/api/*</code> với <strong>Cache Level: Bypass</strong></p>
+                </div>
+              </div>
+            </div>
+
+            {/* Cloudflare Tunnel Setup Example */}
+            <div className="p-4 border border-stone-200 rounded-2xl bg-stone-900 text-stone-200 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="font-extrabold text-white text-xs flex items-center gap-2">
+                  <Code2 className="w-4 h-4 text-amber-400" />
+                  <span>Cấu hình Cloudflare Tunnel (cloudflared) cho Full-Stack Node.js</span>
+                </span>
+                <button
+                  onClick={() => handleCopy('tunnel_cmd', 'cloudflared tunnel --url http://localhost:3000')}
+                  className="px-2.5 py-1 rounded-lg bg-stone-800 hover:bg-stone-700 text-stone-300 text-3xs font-mono flex items-center gap-1 cursor-pointer"
+                >
+                  <Copy className="w-3 h-3" />
+                  <span>Sao chép lệnh</span>
+                </button>
+              </div>
+              <p className="text-2xs text-stone-400">
+                Nếu bạn muốn chạy cả backend Node.js (cổng 3000) tại nhà ăn và phát sóng ra Internet bảo mật qua Cloudflare Tunnel:
+              </p>
+              <pre className="bg-stone-950 p-3 rounded-xl font-mono text-2xs text-emerald-400 overflow-x-auto">
+{`# 1. Chạy Backend Node.js
+npm start
+
+# 2. Mở đường truyền Cloudflare Tunnel trực tiếp
+cloudflared tunnel --url http://localhost:3000`}
+              </pre>
+            </div>
           </div>
         )}
       </div>

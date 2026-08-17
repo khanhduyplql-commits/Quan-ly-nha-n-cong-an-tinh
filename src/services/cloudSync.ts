@@ -26,13 +26,16 @@ const localBroadcast = typeof window !== 'undefined' && 'BroadcastChannel' in wi
   ? new BroadcastChannel('nhahang_local_sync')
   : null;
 
+let isCloudSSEConnected = false;
+let isLocalServerAvailable = true;
+
 /**
  * Publish an event to all connected devices (Phones, Kitchen, POS, Cashier)
  */
 export async function broadcastRealtimeEvent(event: CloudSyncEvent): Promise<void> {
   const payload = JSON.stringify(event);
 
-  // 1. Broadcast to local tabs on same device/browser
+  // 1. Broadcast to local tabs on same device/browser (0ms latency)
   if (localBroadcast) {
     try {
       localBroadcast.postMessage(event);
@@ -41,19 +44,30 @@ export async function broadcastRealtimeEvent(event: CloudSyncEvent): Promise<voi
     }
   }
 
-  // 2. Broadcast to local server if available
-  try {
-    fetch('/api/sync-relay', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: payload
-    }).catch(() => {});
-  } catch {
-    // Ignore offline server
+  // 2. Cross-window localStorage ping fallback
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem('qr_realtime_ping', JSON.stringify({ event, t: Date.now() }));
+    } catch {}
   }
 
-  // 3. Broadcast to global Cloud Real-Time PubSub (ntfy.sh) - works across ANY network, 4G, Wifi, shared link!
-  // Send body as raw string without Content-Type: application/json so ntfy stores entire json as message string
+  // 3. Broadcast to local backend server if available
+  if (isLocalServerAvailable) {
+    try {
+      const res = await fetch('/api/sync-relay', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: payload
+      });
+      if (!res.ok && res.status === 404) {
+        isLocalServerAvailable = false;
+      }
+    } catch {
+      isLocalServerAvailable = false;
+    }
+  }
+
+  // 4. Broadcast to global Cloud Real-Time PubSub (ntfy.sh) - works across Cloudflare, 4G, Wifi, WAN
   try {
     fetch(NTFY_PUBLISH_URL, {
       method: 'POST',
@@ -69,11 +83,24 @@ export async function broadcastRealtimeEvent(event: CloudSyncEvent): Promise<voi
 /**
  * Subscribe to real-time events from all devices
  */
-export function subscribeToRealtimeSync(onEvent: (event: CloudSyncEvent) => void): () => void {
+export function subscribeToRealtimeSync(
+  onEvent: (event: CloudSyncEvent) => void,
+  onStatusChange?: (status: { isCloudConnected: boolean; isLocalConnected: boolean; mode: 'server' | 'edge_cloud' | 'local_p2p' }) => void
+): () => void {
   let isSubscribed = true;
   let sseCloud: EventSource | null = null;
   let sseLocal: EventSource | null = null;
   let reconnectTimer: NodeJS.Timeout | null = null;
+
+  const notifyStatus = () => {
+    if (onStatusChange) {
+      onStatusChange({
+        isCloudConnected: isCloudSSEConnected,
+        isLocalConnected: isLocalServerAvailable,
+        mode: isLocalServerAvailable ? 'server' : (isCloudSSEConnected ? 'edge_cloud' : 'local_p2p')
+      });
+    }
+  };
 
   // Handler for incoming messages
   const handleIncomingMessage = (rawJson: string) => {
@@ -99,21 +126,55 @@ export function subscribeToRealtimeSync(onEvent: (event: CloudSyncEvent) => void
     };
   }
 
-  // 2. Connect to Local Server SSE
+  // 2. Storage event listener (for Safari / cross-window P2P)
+  const handleStorageEvent = (e: StorageEvent) => {
+    if (!isSubscribed) return;
+    if (e.key === 'qr_realtime_ping' && e.newValue) {
+      try {
+        const parsed = JSON.parse(e.newValue);
+        if (parsed && parsed.event && parsed.event.type) {
+          onEvent(parsed.event as CloudSyncEvent);
+        }
+      } catch {}
+    }
+  };
+  if (typeof window !== 'undefined') {
+    window.addEventListener('storage', handleStorageEvent);
+  }
+
+  // 3. Connect to Local Server SSE (if full-stack Node server exists)
   try {
     sseLocal = new EventSource('/api/events');
+    sseLocal.onopen = () => {
+      isLocalServerAvailable = true;
+      notifyStatus();
+    };
     sseLocal.onmessage = (e) => {
       handleIncomingMessage(e.data);
     };
+    sseLocal.onerror = () => {
+      // On Cloudflare Pages or static export, /api/events won't exist
+      isLocalServerAvailable = false;
+      if (sseLocal) {
+        sseLocal.close();
+        sseLocal = null;
+      }
+      notifyStatus();
+    };
   } catch {
-    // Server SSE unavailable
+    isLocalServerAvailable = false;
   }
 
-  // 3. Connect to Global Cloud Real-Time SSE (ntfy.sh)
+  // 4. Connect to Global Cloud Real-Time SSE (ntfy.sh)
   const connectCloudSSE = () => {
     if (!isSubscribed) return;
     try {
       sseCloud = new EventSource(NTFY_SSE_URL);
+
+      sseCloud.onopen = () => {
+        isCloudSSEConnected = true;
+        notifyStatus();
+      };
       
       sseCloud.onmessage = (e) => {
         try {
@@ -130,18 +191,22 @@ export function subscribeToRealtimeSync(onEvent: (event: CloudSyncEvent) => void
       };
 
       sseCloud.onerror = () => {
+        isCloudSSEConnected = false;
+        notifyStatus();
         if (sseCloud) {
           sseCloud.close();
           sseCloud = null;
         }
         if (isSubscribed) {
-          reconnectTimer = setTimeout(connectCloudSSE, 3000);
+          reconnectTimer = setTimeout(connectCloudSSE, 2500);
         }
       };
     } catch (err) {
-      console.warn('[CLOUD_SYNC] SSE Connection error, retrying in 3s:', err);
+      isCloudSSEConnected = false;
+      notifyStatus();
+      console.warn('[CLOUD_SYNC] SSE Connection error, retrying in 2.5s:', err);
       if (isSubscribed) {
-        reconnectTimer = setTimeout(connectCloudSSE, 3000);
+        reconnectTimer = setTimeout(connectCloudSSE, 2500);
       }
     }
   };
@@ -151,9 +216,11 @@ export function subscribeToRealtimeSync(onEvent: (event: CloudSyncEvent) => void
   // Cleanup function
   return () => {
     isSubscribed = false;
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('storage', handleStorageEvent);
+    }
     if (reconnectTimer) clearTimeout(reconnectTimer);
     if (sseCloud) sseCloud.close();
     if (sseLocal) sseLocal.close();
   };
 }
-

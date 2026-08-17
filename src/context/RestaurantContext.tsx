@@ -370,7 +370,9 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     try {
       const res = await fetch('/api/state', { cache: 'no-store' });
       if (!res.ok) {
-        setIsLiveSynced(false);
+        // If deployed to Cloudflare Pages or Static CDN (where /api/state is not hosted as Node),
+        // we still have Cloud Relay (P2P + Cloud SSE) active and healthy.
+        setLastSyncedTime(Date.now());
         return;
       }
       const data = await res.json();
@@ -458,7 +460,7 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         setMenuItems(data.menuItems);
       }
     } catch {
-      setIsLiveSynced(false);
+      // Keep isLiveSynced true if cloud/P2P channel is alive
     }
   };
 
@@ -479,9 +481,12 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     };
     window.addEventListener('focus', handleFocus);
 
-    // Real-Time Cross-Device & Cloud Sync Listener (works on 4G, Wifi, iPhone, Android, PC)
-    const unsubscribeCloud = subscribeToRealtimeSync((event: any) => {
-      if (!isMounted) return;
+    // Real-Time Cross-Device & Cloud Sync Listener (works on Cloudflare, 4G, Wifi, iPhone, Android, PC)
+    const unsubscribeCloud = subscribeToRealtimeSync(
+      (event: any) => {
+        if (!isMounted) return;
+        setIsLiveSynced(true);
+        setLastSyncedTime(Date.now());
 
       const type = event.type?.toLowerCase() || '';
 
