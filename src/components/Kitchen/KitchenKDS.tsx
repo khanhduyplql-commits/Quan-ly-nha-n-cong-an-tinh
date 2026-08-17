@@ -69,7 +69,7 @@ export const KitchenKDS: React.FC = () => {
 
   // Filter orders
   const filteredOrders = orders.filter(order => {
-    if (order.status === 'paid' || order.status === 'cancelled') {
+    if (order.status === 'cancelled') {
       if (statusFilter !== 'all') return false;
     }
 
@@ -341,12 +341,19 @@ export const KitchenKDS: React.FC = () => {
                     </div>
 
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-lg font-black text-white px-2.5 py-0.5 rounded-xl bg-orange-600 shadow-xs">
                           {order.tableName}
                         </span>
                         <span className="font-bold text-sm text-stone-300">
                           {order.orderNumber}
+                        </span>
+                        <span className={`text-3xs font-extrabold px-2 py-0.5 rounded-full border ${
+                          order.paymentStatus === 'paid'
+                            ? 'bg-emerald-950/80 text-emerald-300 border-emerald-700/80'
+                            : 'bg-amber-950/80 text-amber-300 border-amber-700/80'
+                        }`}>
+                          {order.paymentStatus === 'paid' ? 'ĐÃ THU TIỀN' : 'CHƯA THU'}
                         </span>
                       </div>
 

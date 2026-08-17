@@ -236,7 +236,7 @@ async function startServer() {
           return {
             ...o,
             paymentStatus: 'paid',
-            status: 'paid',
+            status: (o.status === 'served' || o.status === 'cancelled') ? o.status : (o.status || 'cooking'),
             paymentMethod: paymentMethod || o.paymentMethod || 'vietqr'
           };
         }
@@ -338,7 +338,7 @@ async function startServer() {
           return {
             ...o,
             paymentStatus: 'paid',
-            status: 'paid',
+            status: (o.status === 'served' || o.status === 'cancelled') ? o.status : (o.status || 'cooking'),
             paymentMethod: paymentMethod || o.paymentMethod || 'vietqr'
           };
         }

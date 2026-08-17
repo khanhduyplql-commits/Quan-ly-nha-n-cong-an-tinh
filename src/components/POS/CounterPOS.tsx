@@ -48,6 +48,7 @@ export const CounterPOS: React.FC = () => {
     restaurantInfo,
     payOrder,
     submitOrder,
+    submitDirectOrder,
     playNotificationSound,
     addTransaction
   } = useRestaurant();
@@ -304,7 +305,10 @@ export const CounterPOS: React.FC = () => {
       }))
     };
 
-    // 2. Generate Receipt / Cash Transaction (PHIẾU THU DOANH THU BÁN HÀNG)
+    // 2. Immediately dispatch to Kitchen screen (KDS) & Realtime sync
+    submitDirectOrder(newOrder);
+
+    // 3. Generate Receipt / Cash Transaction (PHIẾU THU DOANH THU BÁN HÀNG)
     const newReceipt = await addTransaction({
       type: 'income',
       category: 'sales',
@@ -319,17 +323,17 @@ export const CounterPOS: React.FC = () => {
       tableNumber: isTakeaway ? undefined : selectedTableNumber
     });
 
-    // 3. Dispatch to server & local context
+    // 4. Mark paid in payment ledger
     payOrder(newOrderId, paymentMethod, finalTotal, newOrder);
 
-    // 4. Feedback & Open Printable Receipt Modal
+    // 5. Feedback & Open Printable Receipt Modal
     setCompletedOrder(newOrder);
     setCompletedTransaction(newReceipt);
     setShowCompletedReceiptModal(true);
     playNotificationSound('success');
-    showToast(`Đã thu ${formatVND(finalTotal)} và đẩy thành công Phiếu Thu ${newReceipt.receiptNumber}!`);
+    showToast(`Đã thu ${formatVND(finalTotal)}, chuyển món xuống Bếp và xuất Phiếu Thu ${newReceipt.receiptNumber}!`);
 
-    // 5. Clear cart for next sale
+    // 6. Clear cart for next sale
     clearPosCart();
   };
 
@@ -374,15 +378,10 @@ export const CounterPOS: React.FC = () => {
       }))
     };
 
-    // Save to context
-    fetch('/api/orders', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newOrder)
-    }).catch(console.error);
+    // Save to context, broadcast to Kitchen, and save to server
+    submitDirectOrder(newOrder);
 
-    playNotificationSound('order');
-    showToast(`Đã gửi đơn ${orderNum} đến Bếp cho ${currentTableName}!`);
+    showToast(`Đã gửi đơn ${orderNum} xuống Bếp thành công cho ${currentTableName}!`);
     clearPosCart();
   };
 

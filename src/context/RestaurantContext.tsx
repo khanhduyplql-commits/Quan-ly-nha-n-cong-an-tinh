@@ -109,6 +109,7 @@ interface RestaurantContextType {
   orders: TableOrder[];
   activeTableOrders: TableOrder[];
   submitOrder: (customerName?: string, orderNote?: string) => TableOrder;
+  submitDirectOrder: (order: TableOrder) => TableOrder;
   createQuickTestOrder: (targetTableNumber?: string) => TableOrder;
   updateOrderStatus: (orderId: string, status: OrderStatus) => void;
   updateOrderItemStatus: (orderId: string, itemId: string, status: 'pending' | 'cooking' | 'served' | 'cancelled') => void;
@@ -562,13 +563,23 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           setOrders(prev => prev.map(o => {
             if (pOrderIds.has(o.id)) {
               const pItem = payments.find((p: any) => p.id === o.id);
-              return { ...o, paymentStatus: 'paid', status: 'paid', paymentMethod: pItem?.paymentMethod || o.paymentMethod || 'vietqr' };
+              return { 
+                ...o, 
+                paymentStatus: 'paid', 
+                paymentMethod: pItem?.paymentMethod || o.paymentMethod || 'vietqr',
+                status: (o.status === 'served' || o.status === 'cancelled') ? o.status : (o.status || 'cooking')
+              };
             }
             return o;
           }));
         } else if (event.orderId || event.id) {
           const oId = event.orderId || event.id;
-          setOrders(prev => prev.map(o => o.id === oId ? { ...o, paymentStatus: 'paid', status: 'paid', paymentMethod: event.paymentMethod || 'vietqr' } : o));
+          setOrders(prev => prev.map(o => o.id === oId ? { 
+            ...o, 
+            paymentStatus: 'paid', 
+            paymentMethod: event.paymentMethod || 'vietqr',
+            status: (o.status === 'served' || o.status === 'cancelled') ? o.status : (o.status || 'cooking')
+          } : o));
         }
 
         const tableNum = event.tableNumber || event.data?.tableNumber;
@@ -933,6 +944,49 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     return newOrder;
   };
 
+  // Submit Direct Order (from Counter POS, Table Map, Waiter, or Customer Phone)
+  const submitDirectOrder = (order: TableOrder): TableOrder => {
+    // 1. Update React state immediately
+    setOrders(prev => {
+      const exists = prev.some(o => o.id === order.id);
+      if (exists) {
+        return prev.map(o => o.id === order.id ? order : o);
+      }
+      return [order, ...prev];
+    });
+
+    // 2. Update table status if dine-in
+    if (order.tableNumber && order.tableNumber !== 'counter') {
+      setTables(prev => prev.map(t => {
+        if (t.number === order.tableNumber) {
+          return {
+            ...t,
+            status: 'eating',
+            activeOrderId: order.id
+          };
+        }
+        return t;
+      }));
+    }
+
+    // 3. Play audio chime
+    playNotificationSound('order');
+
+    // 4. Broadcast global Real-time event (KDS Kitchen, Counter, Manager)
+    broadcastRealtimeEvent({ type: 'NEW_ORDER', order }).catch(console.error);
+
+    // 5. Post to backend server
+    fetch('/api/orders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(order)
+    }).catch(err => {
+      console.warn('Sync direct order to server failed, stored locally:', err);
+    });
+
+    return order;
+  };
+
   const updateOrderStatus = (orderId: string, status: OrderStatus) => {
     let affectedTableNumber = '';
     let affectedOrderNumber = '';
@@ -1058,15 +1112,20 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setOrders(prev => {
       const exists = prev.some(o => o.id === orderId);
       if (!exists && explicitOrder) {
-        return [{ ...explicitOrder, paymentStatus: 'paid', status: 'paid', paymentMethod }, ...prev];
+        return [{ 
+          ...explicitOrder, 
+          paymentStatus: 'paid', 
+          paymentMethod,
+          status: (explicitOrder.status === 'served' || explicitOrder.status === 'cancelled') ? explicitOrder.status : (explicitOrder.status || 'cooking')
+        }, ...prev];
       }
       return prev.map(o => {
         if (o.id === orderId) {
           return {
             ...o,
             paymentStatus: 'paid',
-            status: 'paid',
-            paymentMethod
+            paymentMethod,
+            status: (o.status === 'served' || o.status === 'cancelled') ? o.status : (o.status || 'cooking')
           };
         }
         return o;
@@ -1184,8 +1243,8 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         return {
           ...o,
           paymentStatus: 'paid',
-          status: 'paid',
-          paymentMethod: (item?.paymentMethod || o.paymentMethod || 'vietqr') as any
+          paymentMethod: (item?.paymentMethod || o.paymentMethod || 'vietqr') as any,
+          status: (o.status === 'served' || o.status === 'cancelled') ? o.status : (o.status || 'cooking')
         };
       }
       return o;
@@ -1498,6 +1557,7 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         orders,
         activeTableOrders,
         submitOrder,
+        submitDirectOrder,
         createQuickTestOrder,
         updateOrderStatus,
         updateOrderItemStatus,
