@@ -338,21 +338,20 @@ export const CounterPOS: React.FC = () => {
   };
 
   // ==========================================
-  // ACTION: GỬI BẾP CHƯA THU (LƯU VÀO BÀN ĂN)
+  // ACTION: GỬI BẾP CHƯA THU (LƯU VÀO BÀN ĂN / QUẦY MANG VỀ)
   // ==========================================
   const handleSendKitchenUnpaid = () => {
     if (posCart.length === 0) {
-      showToast('Vui lòng chọn món ăn!');
-      return;
-    }
-    if (selectedTableNumber === 'counter') {
-      showToast('Khách mua tại quầy vui lòng Thu tiền & Xuất phiếu thu ngay!');
+      showToast('Vui lòng chọn món ăn trước khi báo Bếp!');
       return;
     }
 
     const orderNum = `#${Math.floor(100 + Math.random() * 900)}`;
-    const currentTableName = tables.find(t => t.number === selectedTableNumber)?.name || `Bàn ${selectedTableNumber}`;
-    const customerDisplayName = customerName.trim() || `Khách ${currentTableName}`;
+    const isTakeaway = selectedTableNumber === 'counter';
+    const currentTableName = isTakeaway 
+      ? 'Quầy Thu Ngân (Mang về / Vãng lai)' 
+      : (tables.find(t => t.number === selectedTableNumber)?.name || `Bàn ${selectedTableNumber}`);
+    const customerDisplayName = customerName.trim() || (isTakeaway ? 'Khách mua tại quầy' : `Khách ${currentTableName}`);
 
     const newOrderId = `ord-${Date.now()}`;
     const newOrder: TableOrder = {
@@ -378,12 +377,27 @@ export const CounterPOS: React.FC = () => {
       }))
     };
 
-    // Save to context, broadcast to Kitchen, and save to server
+    // Save to context, broadcast to Kitchen KDS, and save to server
     submitDirectOrder(newOrder);
+    playNotificationSound('order');
 
-    showToast(`Đã gửi đơn ${orderNum} xuống Bếp thành công cho ${currentTableName}!`);
+    showToast(`👨‍🍳 Đã chuyển đơn ${orderNum} (${posCart.length} món) xuống Bếp thành công cho ${currentTableName}!`);
     clearPosCart();
   };
+
+  // Keyboard shortcut: F2 or Ctrl+Enter to send to kitchen
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'F2' || (e.ctrlKey && e.key === 'Enter')) {
+        if (posCart.length > 0) {
+          e.preventDefault();
+          handleSendKitchenUnpaid();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [posCart, selectedTableNumber, customerName, orderNote, finalTotal]);
 
   // VietQR Dynamic Link for Counter QR display
   const vietQrUrl = useMemo(() => {
@@ -671,6 +685,33 @@ export const CounterPOS: React.FC = () => {
           </div>
         </div>
 
+        {/* Top Prompt Banner when items are in cart */}
+        {posCart.length > 0 && (
+          <div className="mx-3 mt-3 p-3 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md flex items-center justify-between gap-2 animate-in fade-in slide-in-from-top-2 duration-200">
+            <div className="flex items-center gap-2 min-w-0">
+              <ChefHat className="w-5 h-5 text-amber-100 shrink-0 animate-bounce" />
+              <div className="min-w-0 text-left">
+                <div className="font-black text-xs leading-tight">
+                  Đang có {totalItemCount} món chờ chuyển Bếp
+                </div>
+                <div className="text-3xs text-amber-100 truncate">
+                  {selectedTableNumber === 'counter' ? '📍 Quầy / Mang về' : `📍 Bàn ${selectedTableNumber}`} • Phím tắt: F2
+                </div>
+              </div>
+            </div>
+
+            <button
+              id="btn-pos-quick-send-kitchen-top"
+              type="button"
+              onClick={handleSendKitchenUnpaid}
+              className="px-3 py-1.5 rounded-xl bg-white hover:bg-amber-50 text-amber-900 text-xs font-black shadow-xs transition-all active:scale-95 cursor-pointer whitespace-nowrap flex items-center gap-1.5 shrink-0"
+            >
+              <Send className="w-3.5 h-3.5 text-amber-600" />
+              <span>BÁO BẾP NGAY</span>
+            </button>
+          </div>
+        )}
+
         {/* Cart Items List */}
         <div className="flex-1 p-4 overflow-y-auto max-h-[300px] lg:max-h-[260px] space-y-2.5 divide-y divide-stone-100">
           {posCart.length === 0 ? (
@@ -912,7 +953,7 @@ export const CounterPOS: React.FC = () => {
             )}
           </div>
 
-          {/* Action Buttons: Primary Push Receipt vs Send to Kitchen Unpaid */}
+          {/* Action Buttons: Dual Big Buttons (THU TIỀN + BÁO BẾP NGAY) */}
           <div className="pt-2 space-y-2">
             <button
               id="btn-pos-collect-push-receipt"
@@ -929,17 +970,20 @@ export const CounterPOS: React.FC = () => {
               <span>THU TIỀN & XUẤT PHIẾU THU ({formatVND(finalTotal)})</span>
             </button>
 
-            {selectedTableNumber !== 'counter' && (
-              <button
-                type="button"
-                onClick={handleSendKitchenUnpaid}
-                disabled={posCart.length === 0}
-                className="w-full py-2 px-3 rounded-xl border border-stone-300 bg-white hover:bg-stone-100 text-stone-700 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-              >
-                <Send className="w-3.5 h-3.5 text-amber-600" />
-                <span>Gửi Bếp Chưa Thu (Khách dùng tại bàn trả sau)</span>
-              </button>
-            )}
+            <button
+              id="btn-pos-send-kitchen"
+              type="button"
+              onClick={handleSendKitchenUnpaid}
+              disabled={posCart.length === 0}
+              className={`w-full py-3 px-4 rounded-2xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 border transition-all active:scale-98 cursor-pointer ${
+                posCart.length > 0
+                  ? 'bg-amber-500 hover:bg-amber-600 text-white border-amber-500 shadow-md shadow-amber-500/20'
+                  : 'bg-stone-100 text-stone-400 border-stone-200 cursor-not-allowed'
+              }`}
+            >
+              <Send className="w-4 h-4" />
+              <span>⚡ BÁO BẾP NGAY • CHUYỂN BẾP CHẾ BIẾN (F2)</span>
+            </button>
           </div>
         </div>
       </div>

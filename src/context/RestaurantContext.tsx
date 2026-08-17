@@ -11,9 +11,10 @@ import {
   UserRole,
   ActiveTab
 } from '../types';
-import { INITIAL_MENU_ITEMS, INITIAL_TABLES, INITIAL_ORDERS, INITIAL_TRANSACTIONS } from '../data/mockData';
+import { INITIAL_MENU_ITEMS, INITIAL_TABLES, INITIAL_ORDERS, INITIAL_TRANSACTIONS, DEFAULT_ACCOUNTS } from '../data/mockData';
 import { broadcastRealtimeEvent, subscribeToRealtimeSync, CloudSyncEvent } from '../services/cloudSync';
 import { getLocalDateString } from '../utils/format';
+import { UserAccount } from '../types';
 
 export interface RoleDefinition {
   id: UserRole;
@@ -32,7 +33,7 @@ export const ROLE_CONFIGS: Record<UserRole, RoleDefinition> = {
   admin: {
     id: 'admin',
     title: 'Quản Trị Viên (Toàn Quyền)',
-    shortTitle: 'Quản Trị Admin',
+    shortTitle: 'Quản Lý',
     description: 'Toàn quyền truy cập tất cả chức năng: Bán hàng, Thu ngân, Sơ đồ bàn, Bếp KDS, Sổ Quỹ Thu Chi, Quản lý món và Hướng dẫn.',
     badgeBg: 'bg-rose-100',
     badgeText: 'text-rose-900',
@@ -44,8 +45,8 @@ export const ROLE_CONFIGS: Record<UserRole, RoleDefinition> = {
   cashier: {
     id: 'cashier',
     title: 'Bộ Phận Bán Hàng & Thu Ngân',
-    shortTitle: 'Bán Hàng & Thu Ngân',
-    description: 'Chỉ xem và thao tác trên: Quầy Bán Hàng & Thu Ngân (POS) và Sơ Đồ Bàn & Đơn Bán. Thu tiền và xuất phiếu thu.',
+    shortTitle: 'Thu Ngân',
+    description: 'Quản lý quầy bán hàng (POS), sơ đồ bàn, thanh toán và in phiếu thu hóa đơn cho khách.',
     badgeBg: 'bg-amber-100',
     badgeText: 'text-amber-900',
     badgeBorder: 'border-amber-300',
@@ -53,11 +54,23 @@ export const ROLE_CONFIGS: Record<UserRole, RoleDefinition> = {
     allowedTabs: ['pos_counter', 'tables'],
     defaultTab: 'pos_counter'
   },
+  finance: {
+    id: 'finance',
+    title: 'Quản Lý Thu Chi & Kế Toán',
+    shortTitle: 'Quản Lý Thu Chi',
+    description: 'Quản lý Sổ Quỹ Tiền Mặt, Lập phiếu Thu/Chi, Báo cáo dòng tiền, thống kê Doanh thu & Lợi nhuận.',
+    badgeBg: 'bg-emerald-100',
+    badgeText: 'text-emerald-900',
+    badgeBorder: 'border-emerald-300',
+    defaultPin: '6666',
+    allowedTabs: ['cashflow', 'guide'],
+    defaultTab: 'cashflow'
+  },
   kitchen: {
     id: 'kitchen',
     title: 'Bộ Phận Bếp & Chế Biến (KDS)',
-    shortTitle: 'Bộ Phận Bếp (KDS)',
-    description: 'Chỉ xem và thao tác trên: Màn Hình Bếp (KDS) để nhận đơn, chuyển trạng thái nấu, hoàn thành món và báo hết món.',
+    shortTitle: 'Bộ Phận Bếp',
+    description: 'Màn hình Bếp KDS: Tiếp nhận đơn chế biến từ các bàn/quầy thu ngân, nấu món và thông báo trả món.',
     badgeBg: 'bg-orange-100',
     badgeText: 'text-orange-900',
     badgeBorder: 'border-orange-300',
@@ -68,12 +81,16 @@ export const ROLE_CONFIGS: Record<UserRole, RoleDefinition> = {
 };
 
 interface RestaurantContextType {
-  // Roles & View Mode
+  // Authentication & Roles
+  isAuthenticated: boolean;
+  currentUser: UserAccount | null;
   userRole: UserRole;
   setUserRole: (role: UserRole) => void;
   isRoleAllowedTab: (role: UserRole, tab: ActiveTab) => boolean;
   switchRole: (role: UserRole) => void;
+  loginWithAccount: (role: UserRole, pin: string, remember?: boolean) => { success: boolean; message?: string };
   loginWithPin: (pin: string) => { success: boolean; role?: UserRole; message?: string };
+  logoutUser: () => void;
   isManagerAuthenticated: boolean;
   setIsManagerAuthenticated: (auth: boolean) => void;
   loginAsManager: (pin: string) => boolean;
@@ -170,7 +187,27 @@ interface RestaurantContextType {
 const RestaurantContext = createContext<RestaurantContextType | undefined>(undefined);
 
 export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // User Role & Role-based Access Control
+  // User Authentication & Roles
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    try {
+      const sessionAuth = sessionStorage.getItem('qr_auth_user');
+      if (sessionAuth) return true;
+      const localAuth = localStorage.getItem('qr_auth_remember');
+      if (localAuth) return true;
+    } catch {}
+    return false;
+  });
+
+  const [currentUser, setCurrentUser] = useState<UserAccount | null>(() => {
+    try {
+      const sessionUser = sessionStorage.getItem('qr_auth_user');
+      if (sessionUser) return JSON.parse(sessionUser);
+      const localUser = localStorage.getItem('qr_auth_remember');
+      if (localUser) return JSON.parse(localUser);
+    } catch {}
+    return null;
+  });
+
   const [isManagerAuthenticated, setIsManagerAuthenticated] = useState<boolean>(() => {
     try {
       return sessionStorage.getItem('qr_manager_auth') === 'true';
@@ -182,16 +219,16 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [userRole, setUserRoleState] = useState<UserRole>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('qr_current_role') as UserRole;
-      if (saved && (saved === 'admin' || saved === 'cashier' || saved === 'kitchen')) {
+      if (saved && (saved === 'admin' || saved === 'cashier' || saved === 'finance' || saved === 'kitchen')) {
         return saved;
       }
       const params = new URLSearchParams(window.location.search);
-      const roleParam = params.get('role');
-      if (roleParam === 'kitchen' || roleParam === 'cashier' || roleParam === 'admin') {
+      const roleParam = params.get('role') as UserRole;
+      if (roleParam && (roleParam === 'kitchen' || roleParam === 'cashier' || roleParam === 'finance' || roleParam === 'admin')) {
         return roleParam;
       }
     }
-    return 'admin'; // Default to admin for full experience unless switched
+    return 'admin';
   });
 
   const setUserRole = (role: UserRole) => {
@@ -203,6 +240,10 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   const switchRole = (role: UserRole) => {
     setUserRole(role);
+    const targetAcc = DEFAULT_ACCOUNTS.find(a => a.role === role);
+    if (targetAcc) {
+      setCurrentUser(targetAcc);
+    }
   };
 
   const isRoleAllowedTab = (role: UserRole, tab: ActiveTab): boolean => {
@@ -211,21 +252,81 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     return config.allowedTabs.includes(tab);
   };
 
+  const loginWithAccount = (role: UserRole, pin: string, remember: boolean = true): { success: boolean; message?: string } => {
+    const cleanPin = pin.trim();
+    const config = ROLE_CONFIGS[role];
+    const targetAcc = DEFAULT_ACCOUNTS.find(a => a.role === role);
+
+    const validPinsForRole: Record<UserRole, string[]> = {
+      admin: ['8888', '1234', 'admin', '0000', '9999', 'admin123'],
+      cashier: ['2222', '2026', 'thungan', 'cashier', '1122', '1234'],
+      finance: ['6666', 'ketoan', 'finance', '1234', '8888'],
+      kitchen: ['3333', 'bep', 'kitchen', '1111', '3344']
+    };
+
+    const isMatch = validPinsForRole[role]?.includes(cleanPin) || cleanPin === config?.defaultPin || (targetAcc && cleanPin === targetAcc.password);
+
+    if (isMatch) {
+      const user: UserAccount = targetAcc || {
+        username: role,
+        displayName: config.title,
+        role,
+        pin: cleanPin,
+        description: config.description
+      };
+      setIsAuthenticated(true);
+      setCurrentUser(user);
+      setUserRole(role);
+      setIsManagerAuthenticated(role === 'admin' || role === 'finance');
+
+      try {
+        sessionStorage.setItem('qr_auth_user', JSON.stringify(user));
+        if (remember) {
+          localStorage.setItem('qr_auth_remember', JSON.stringify(user));
+        } else {
+          localStorage.removeItem('qr_auth_remember');
+        }
+        localStorage.setItem('qr_current_role', role);
+      } catch {}
+
+      return { success: true };
+    }
+
+    return { success: false, message: `Mã PIN hoặc mật khẩu không đúng cho vai trò ${config?.shortTitle || role}!` };
+  };
+
   const loginWithPin = (pin: string): { success: boolean; role?: UserRole; message?: string } => {
     const cleanPin = pin.trim();
-    if (['8888', '1234', '6789', '0000', '9999'].includes(cleanPin)) {
+    if (['8888', '1234', '6789', '0000', '9999', 'admin'].includes(cleanPin)) {
       setUserRole('admin');
       setIsManagerAuthenticated(true);
+      setIsAuthenticated(true);
+      const acc = DEFAULT_ACCOUNTS.find(a => a.role === 'admin');
+      if (acc) setCurrentUser(acc);
       return { success: true, role: 'admin' };
     }
-    if (['2222', '2026', '1122'].includes(cleanPin)) {
+    if (['2222', '2026', '1122', 'thungan', 'cashier'].includes(cleanPin)) {
       setUserRole('cashier');
-      setIsManagerAuthenticated(true);
+      setIsManagerAuthenticated(false);
+      setIsAuthenticated(true);
+      const acc = DEFAULT_ACCOUNTS.find(a => a.role === 'cashier');
+      if (acc) setCurrentUser(acc);
       return { success: true, role: 'cashier' };
     }
-    if (['3333', '1111', '3344'].includes(cleanPin)) {
-      setUserRole('kitchen');
+    if (['6666', 'ketoan', 'finance'].includes(cleanPin)) {
+      setUserRole('finance');
       setIsManagerAuthenticated(true);
+      setIsAuthenticated(true);
+      const acc = DEFAULT_ACCOUNTS.find(a => a.role === 'finance');
+      if (acc) setCurrentUser(acc);
+      return { success: true, role: 'finance' };
+    }
+    if (['3333', '1111', '3344', 'bep', 'kitchen'].includes(cleanPin)) {
+      setUserRole('kitchen');
+      setIsManagerAuthenticated(false);
+      setIsAuthenticated(true);
+      const acc = DEFAULT_ACCOUNTS.find(a => a.role === 'kitchen');
+      if (acc) setCurrentUser(acc);
       return { success: true, role: 'kitchen' };
     }
     return { success: false, message: 'Mã PIN không hợp lệ! Vui lòng thử lại.' };
@@ -242,6 +343,17 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     try {
       sessionStorage.removeItem('qr_manager_auth');
       localStorage.setItem('qr_current_role', 'cashier');
+    } catch {}
+  };
+
+  const logoutUser = () => {
+    setIsAuthenticated(false);
+    setCurrentUser(null);
+    setIsManagerAuthenticated(false);
+    try {
+      sessionStorage.removeItem('qr_auth_user');
+      sessionStorage.removeItem('qr_manager_auth');
+      localStorage.removeItem('qr_auth_remember');
     } catch {}
   };
 
@@ -265,10 +377,20 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     return INITIAL_TABLES;
   });
 
-  // Cashflow Transactions (Thu - Chi)
+  // Cashflow Transactions (Thu - Chi) - Start clean without fake mock data
   const [transactions, setTransactions] = useState<CashTransaction[]>(() => {
-    const saved = localStorage.getItem('qr_dinein_transactions');
-    return saved ? JSON.parse(saved) : INITIAL_TRANSACTIONS;
+    try {
+      const saved = localStorage.getItem('qr_dinein_transactions');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          // Filter out legacy mock data if any
+          const realTxs = parsed.filter((t: CashTransaction) => !t.id?.startsWith('tx-y2025') && !t.id?.startsWith('tx-m') && t.id !== 'tx-1' && t.id !== 'tx-2');
+          return realTxs;
+        }
+      }
+    } catch {}
+    return INITIAL_TRANSACTIONS;
   });
 
   // Active customer table (checks URL param ?table=... then localStorage, default to '01')
@@ -300,15 +422,8 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     } catch {}
   };
 
-  // Cart state for active table
-  const [cart, setCart] = useState<CartItem[]>(() => {
-    try {
-      const saved = localStorage.getItem(`qr_cart_${activeTableNumber}`);
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
+  // Cart state for active table - Always start fresh upon reload
+  const [cart, setCart] = useState<CartItem[]>([]);
 
   // Orders state
   const [orders, setOrders] = useState<TableOrder[]>(() => {
@@ -1525,11 +1640,15 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   return (
     <RestaurantContext.Provider
       value={{
+        isAuthenticated,
+        currentUser,
         userRole,
         setUserRole,
         switchRole,
         isRoleAllowedTab,
+        loginWithAccount,
         loginWithPin,
+        logoutUser,
         isManagerAuthenticated,
         setIsManagerAuthenticated,
         loginAsManager,

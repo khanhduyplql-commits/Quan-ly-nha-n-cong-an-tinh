@@ -314,7 +314,14 @@ export const KitchenKDS: React.FC = () => {
                       : 'bg-stone-900/80 border-stone-800'
                   }`}>
                     {/* Live State Badge Banner */}
-                    <div className="mb-2">
+                    <div className="mb-2 space-y-1">
+                      {Date.now() - order.createdAt < 60000 && order.status !== 'served' && (
+                        <div className="flex items-center gap-1.5 text-3xs font-black text-white bg-gradient-to-r from-red-600 to-amber-600 px-2.5 py-1 rounded-lg border border-amber-400 shadow-sm animate-pulse">
+                          <Zap className="w-3 h-3 fill-current text-yellow-300" />
+                          <span>⚡ VỪA NHẬN TỨC THÌ (DƯỚI 1 PHÚT)</span>
+                        </div>
+                      )}
+
                       {order.status === 'pending' && (
                         <div className="flex items-center gap-1.5 text-2xs font-extrabold text-amber-400 bg-amber-900/50 px-2.5 py-1 rounded-lg border border-amber-700/50 animate-pulse">
                           <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>

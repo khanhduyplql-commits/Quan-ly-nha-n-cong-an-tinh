@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   LayoutGrid, 
   Users, 
@@ -15,10 +15,14 @@ import {
   RefreshCw,
   Wifi,
   WifiOff,
-  Plus
+  Plus,
+  Send,
+  ChefHat,
+  Search,
+  Check
 } from 'lucide-react';
 import { useRestaurant } from '../../context/RestaurantContext';
-import { RestaurantTable, TableOrder } from '../../types';
+import { RestaurantTable, TableOrder, MenuItem, CartItem } from '../../types';
 import { formatVND, formatTimeHM } from '../../utils/format';
 
 interface TableMapPOSProps {
@@ -37,7 +41,10 @@ export const TableMapPOS: React.FC<TableMapPOSProps> = ({ onSelectTableForPos })
     setActiveTableNumber,
     restaurantInfo,
     isLiveSynced,
-    refreshServerState
+    refreshServerState,
+    menuItems,
+    submitDirectOrder,
+    playNotificationSound
   } = useRestaurant();
 
   const [selectedZone, setSelectedZone] = useState<string>('all');
@@ -45,6 +52,64 @@ export const TableMapPOS: React.FC<TableMapPOSProps> = ({ onSelectTableForPos })
   const [posPayMethod, setPosPayMethod] = useState<'cash' | 'vietqr' | 'card'>('cash');
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Quick Dish Ordering State inside Table Modal
+  const [quickDishSearch, setQuickDishSearch] = useState<string>('');
+  const [quickCart, setQuickCart] = useState<{ dish: MenuItem; qty: number }[]>([]);
+  const [quickOrderToast, setQuickOrderToast] = useState<string | null>(null);
+
+  const showQuickToast = (msg: string) => {
+    setQuickOrderToast(msg);
+    setTimeout(() => setQuickOrderToast(null), 2500);
+  };
+
+  const handleAddQuickDish = (dish: MenuItem) => {
+    if (!dish.isAvailable) return;
+    setQuickCart(prev => {
+      const existing = prev.find(i => i.dish.id === dish.id);
+      if (existing) {
+        return prev.map(i => i.dish.id === dish.id ? { ...i, qty: i.qty + 1 } : i);
+      }
+      return [...prev, { dish, qty: 1 }];
+    });
+  };
+
+  const handleSendQuickToKitchen = () => {
+    if (!activeInspectTable || quickCart.length === 0) return;
+
+    const orderNum = `#${Math.floor(100 + Math.random() * 900)}`;
+    const totalAmount = quickCart.reduce((sum, item) => sum + (item.dish.price * item.qty), 0);
+    const newOrderId = `ord-${Date.now()}`;
+
+    const newOrder: TableOrder = {
+      id: newOrderId,
+      orderNumber: orderNum,
+      tableNumber: activeInspectTable.number,
+      tableName: activeInspectTable.name,
+      customerName: `Khách ${activeInspectTable.name}`,
+      createdAt: Date.now(),
+      status: 'pending',
+      paymentStatus: 'unpaid',
+      totalAmount,
+      note: 'Gọi món nhanh từ Sơ Đồ Bàn',
+      items: quickCart.map(c => ({
+        id: `oi-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        menuItemId: c.dish.id,
+        name: c.dish.name,
+        price: c.dish.price,
+        quantity: c.qty,
+        selectedOptions: [],
+        note: '',
+        status: 'pending'
+      }))
+    };
+
+    submitDirectOrder(newOrder);
+    playNotificationSound('order');
+    updateTableStatus(activeInspectTable.id, 'eating');
+    showQuickToast(`👨‍🍳 Đã bắn ${quickCart.length} món xuống Bếp thành công!`);
+    setQuickCart([]);
+  };
 
   const handleManualRefresh = async () => {
     setIsRefreshing(true);
@@ -284,6 +349,84 @@ export const TableMapPOS: React.FC<TableMapPOSProps> = ({ onSelectTableForPos })
                     </button>
                   ))}
                 </div>
+              </div>
+
+              {/* Quick Call & Send to Kitchen Section */}
+              <div className="p-3.5 bg-amber-50/60 rounded-2xl border border-amber-200/80 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-2xs font-black text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
+                    <ChefHat className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Gọi Món & Báo Bếp Nhanh Tại Bàn</span>
+                  </span>
+                  {quickCart.length > 0 && (
+                    <button
+                      onClick={() => setQuickCart([])}
+                      className="text-3xs text-rose-600 font-bold hover:underline cursor-pointer"
+                    >
+                      Xóa chọn
+                    </button>
+                  )}
+                </div>
+
+                {quickOrderToast && (
+                  <div className="text-2xs font-bold text-emerald-800 bg-emerald-100 p-2 rounded-xl border border-emerald-300 flex items-center gap-1.5 animate-in fade-in">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>{quickOrderToast}</span>
+                  </div>
+                )}
+
+                {/* Quick search */}
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 text-stone-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={quickDishSearch}
+                    onChange={(e) => setQuickDishSearch(e.target.value)}
+                    placeholder="Tìm món gọi nhanh cho bàn này..."
+                    className="w-full pl-8 pr-3 py-1.5 bg-white border border-amber-200 rounded-xl text-2xs focus:outline-none focus:ring-1 focus:ring-amber-500 font-medium"
+                  />
+                </div>
+
+                {/* Quick Dish Pills */}
+                <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto">
+                  {menuItems
+                    .filter(m => m.isAvailable && (!quickDishSearch || m.name.toLowerCase().includes(quickDishSearch.toLowerCase())))
+                    .slice(0, 10)
+                    .map(dish => (
+                      <button
+                        key={dish.id}
+                        type="button"
+                        onClick={() => handleAddQuickDish(dish)}
+                        className="px-2.5 py-1 bg-white hover:bg-amber-500 hover:text-white text-stone-700 rounded-xl border border-amber-200 text-3xs font-bold transition-colors cursor-pointer flex items-center gap-1 shadow-2xs"
+                      >
+                        <Plus className="w-2.5 h-2.5" />
+                        <span>{dish.name} ({formatVND(dish.price)})</span>
+                      </button>
+                    ))}
+                </div>
+
+                {/* Quick Cart Preview & Dispatch Button */}
+                {quickCart.length > 0 && (
+                  <div className="pt-2 border-t border-amber-200/80 space-y-2">
+                    <div className="space-y-1 text-2xs">
+                      {quickCart.map(item => (
+                        <div key={item.dish.id} className="flex justify-between items-center bg-white px-2 py-1 rounded-lg border border-amber-100 font-medium">
+                          <span>{item.qty}x {item.dish.name}</span>
+                          <span className="font-bold text-amber-800">{formatVND(item.dish.price * item.qty)}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleSendQuickToKitchen}
+                      className="w-full py-2 px-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-black flex items-center justify-center gap-1.5 shadow-xs transition-all active:scale-98 cursor-pointer"
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                      <span>⚡ BÁO BẾP NGAY ({quickCart.reduce((s, i) => s + i.qty, 0)} MÓN - {formatVND(quickCart.reduce((s, i) => s + (i.dish.price * i.qty), 0))})</span>
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Order history list */}

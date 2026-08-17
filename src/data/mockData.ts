@@ -304,75 +304,7 @@ export const INITIAL_TABLES: RestaurantTable[] = [
   { id: 'tbl-vip-6', number: 'VIP 06', name: 'Bàn VIP 06 (Đại Tiệc)', capacity: 24, zone: 'Tầng 2 (VIP)', status: 'empty' },
 ];
 
-export const INITIAL_ORDERS: TableOrder[] = [
-  {
-    id: 'ord-101',
-    orderNumber: '#101',
-    tableNumber: '02',
-    tableName: 'Bàn 02',
-    customerName: 'Anh Minh',
-    createdAt: Date.now() - 1000 * 60 * 18,
-    status: 'cooking',
-    paymentStatus: 'unpaid',
-    totalAmount: 444000,
-    note: 'Lẩu cho ít ớt hiểm',
-    items: [
-      {
-        id: 'oi-1',
-        menuItemId: 'm5',
-        name: 'Lẩu Thái Hải Sản Chua Cay Thượng Hạng',
-        price: 349000,
-        quantity: 1,
-        selectedOptions: [{ groupName: 'Mức độ cay', choiceName: 'Cay nhẹ (Vừa ăn)', price: 0 }],
-        note: '',
-        status: 'cooking'
-      },
-      {
-        id: 'oi-2',
-        menuItemId: 'm1',
-        name: 'Phở Bò Tái Nạm Wagyu Thượng Hạng',
-        price: 95000,
-        quantity: 1,
-        selectedOptions: [{ groupName: 'Kích cỡ tô', choiceName: 'Tô vừa (Tiêu chuẩn)', price: 0 }],
-        note: 'Không hành lá',
-        status: 'served'
-      }
-    ]
-  },
-  {
-    id: 'ord-102',
-    orderNumber: '#102',
-    tableNumber: '06',
-    tableName: 'Bàn 06',
-    customerName: 'Chị Lan',
-    createdAt: Date.now() - 1000 * 60 * 35,
-    status: 'served',
-    paymentStatus: 'unpaid',
-    totalAmount: 193000,
-    items: [
-      {
-        id: 'oi-3',
-        menuItemId: 'm2',
-        name: 'Bún Chả Hà Nội Nướng Than Hoa',
-        price: 75000,
-        quantity: 2,
-        selectedOptions: [{ groupName: 'Gọi kèm Nem rán', choiceName: '1 Nem cua bể giòn rụm', price: 20000 }],
-        note: '',
-        status: 'served'
-      },
-      {
-        id: 'oi-4',
-        menuItemId: 'm10',
-        name: 'Trà Đào Cam Sả Tươi Hạt Chia',
-        price: 39000,
-        quantity: 1,
-        selectedOptions: [{ groupName: 'Mức đường & đá', choiceName: '70% Đường - 70% Đá (Ít ngọt)', price: 0 }],
-        note: '',
-        status: 'served'
-      }
-    ]
-  }
-];
+export const INITIAL_ORDERS: TableOrder[] = [];
 
 export const CATEGORIES_CONFIG = [
   { id: 'all', label: 'Tất cả món', icon: 'Utensils' },
@@ -384,13 +316,46 @@ export const CATEGORIES_CONFIG = [
   { id: 'dessert', label: 'Tráng Miệng', icon: 'IceCream' },
 ];
 
-import { CashTransaction } from '../types';
+import { CashTransaction, UserAccount } from '../types';
 
-const now = Date.now();
-const oneHour = 1000 * 60 * 60;
-const oneDay = oneHour * 24;
+export const INITIAL_TRANSACTIONS: CashTransaction[] = [];
 
-export const INITIAL_TRANSACTIONS: CashTransaction[] = [
+export const DEFAULT_ACCOUNTS: UserAccount[] = [
+  {
+    username: 'admin',
+    displayName: 'Đ/c Quản Lý (Admin)',
+    role: 'admin',
+    pin: '8888',
+    password: 'admin',
+    description: 'Toàn quyền quản trị toàn bộ hệ thống: Bán hàng, Thu ngân, Sơ đồ bàn, Bếp KDS, Sổ Quỹ Thu Chi, Quản lý thực đơn và Thiết lập.'
+  },
+  {
+    username: 'thungan',
+    displayName: 'Nhân Viên Thu Ngân',
+    role: 'cashier',
+    pin: '2222',
+    password: 'thungan',
+    description: 'Phân hệ Quầy Bán Hàng (POS), Sơ Đồ Bàn, Thu tiền xuất phiếu thu và hóa đơn bán hàng cho khách.'
+  },
+  {
+    username: 'ketoan',
+    displayName: 'Quản Lý Thu Chi & Kế Toán',
+    role: 'finance',
+    pin: '6666',
+    password: 'ketoan',
+    description: 'Phân hệ Quản Lý Thu - Chi, Lập phiếu Thu/Chi, Theo dõi Sổ Quỹ Tiền Mặt và Báo cáo Doanh thu - Lợi nhuận.'
+  },
+  {
+    username: 'bep',
+    displayName: 'Bộ Phận Bếp & Pha Chế (KDS)',
+    role: 'kitchen',
+    pin: '3333',
+    password: 'bep',
+    description: 'Màn hình Bếp KDS: Tiếp nhận yêu cầu chế biến từ bàn ăn/quầy, nấu món và thông báo trả món.'
+  }
+];
+
+const MOCK_OLD_TRANSACTIONS_UNUSED: CashTransaction[] = [
   // Tháng 8 / 2026 (Tháng hiện tại)
   {
     id: 'tx-1',

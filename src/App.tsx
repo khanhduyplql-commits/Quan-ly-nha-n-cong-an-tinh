@@ -11,9 +11,10 @@ import { TechGuide } from './components/Guide/TechGuide';
 import { AiMenuAssistant } from './components/Customer/AiMenuAssistant';
 import { AccessDeniedView } from './components/Auth/AccessDeniedView';
 import { RoleSwitchModal } from './components/Auth/RoleSwitchModal';
+import { LoginScreen } from './components/Auth/LoginScreen';
 
 function MainContent() {
-  const { userRole, isRoleAllowedTab } = useRestaurant();
+  const { userRole, isRoleAllowedTab, isAuthenticated } = useRestaurant();
   const roleConfig = ROLE_CONFIGS[userRole] || ROLE_CONFIGS.admin;
 
   const [activeTab, setActiveTab] = useState<ActiveTab>(() => {
@@ -21,6 +22,11 @@ function MainContent() {
   });
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
   const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
+
+  // If user is not authenticated, display the full Login Wall Screen
+  if (!isAuthenticated) {
+    return <LoginScreen />;
+  }
 
   // When role changes, if current tab is not allowed, switch to default allowed tab
   useEffect(() => {

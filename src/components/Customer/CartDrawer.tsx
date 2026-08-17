@@ -35,39 +35,37 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onOrder
     if (cart.length === 0 || isSubmitting) return;
 
     setIsSubmitting(true);
-    setTimeout(() => {
-      submitOrder(customerName.trim(), orderNote.trim());
-      setIsSubmitting(false);
+    // Instant submission to kitchen (0ms delay)
+    submitOrder(customerName.trim(), orderNote.trim());
+    setIsSubmitting(false);
 
-      try {
-        confetti({
-          particleCount: 80,
-          spread: 60,
-          origin: { y: 0.7 }
-        });
-      } catch {
-        // Safe fallback
-      }
+    try {
+      confetti({
+        particleCount: 80,
+        spread: 60,
+        origin: { y: 0.7 }
+      });
+    } catch {
+      // Safe fallback
+    }
 
-      onClose();
-      onOrderSubmitted();
-    }, 500);
+    onClose();
+    onOrderSubmitted();
   };
 
   const handlePayImmediately = () => {
     if (cart.length === 0 || isSubmitting) return;
 
     setIsSubmitting(true);
-    setTimeout(() => {
-      submitOrder(customerName.trim(), orderNote.trim());
-      setIsSubmitting(false);
-      onClose();
-      if (onOpenPayment) {
-        onOpenPayment();
-      } else {
-        onOrderSubmitted();
-      }
-    }, 400);
+    // Instant submission to kitchen (0ms delay)
+    submitOrder(customerName.trim(), orderNote.trim());
+    setIsSubmitting(false);
+    onClose();
+    if (onOpenPayment) {
+      onOpenPayment();
+    } else {
+      onOrderSubmitted();
+    }
   };
 
   return (

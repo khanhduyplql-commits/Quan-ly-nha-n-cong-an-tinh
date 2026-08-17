@@ -15,11 +15,11 @@ function loadInitialData() {
       const content = fs.readFileSync(DATA_FILE, "utf-8");
       const parsed = JSON.parse(content);
       return {
-        menuItems: parsed.menuItems || [...INITIAL_MENU_ITEMS],
+        menuItems: Array.isArray(parsed.menuItems) ? parsed.menuItems : [...INITIAL_MENU_ITEMS],
         tables: (parsed.tables && parsed.tables.length >= 30) ? parsed.tables : [...INITIAL_TABLES],
-        orders: parsed.orders || [...INITIAL_ORDERS],
-        serviceCalls: parsed.serviceCalls || [],
-        transactions: parsed.transactions || [...INITIAL_TRANSACTIONS]
+        orders: Array.isArray(parsed.orders) ? parsed.orders : [],
+        serviceCalls: Array.isArray(parsed.serviceCalls) ? parsed.serviceCalls : [],
+        transactions: Array.isArray(parsed.transactions) ? parsed.transactions : []
       };
     }
   } catch (err) {
@@ -28,19 +28,9 @@ function loadInitialData() {
   return {
     menuItems: [...INITIAL_MENU_ITEMS],
     tables: [...INITIAL_TABLES],
-    orders: [...INITIAL_ORDERS],
-    transactions: [...INITIAL_TRANSACTIONS],
-    serviceCalls: [
-      {
-        id: 'sc-1',
-        tableNumber: '03',
-        tableName: 'Bàn 03',
-        type: 'refill_water',
-        message: 'Xin thêm bình trà đá',
-        createdAt: Date.now() - 1000 * 60 * 5,
-        status: 'pending'
-      } as ServiceCall
-    ]
+    orders: [],
+    transactions: [],
+    serviceCalls: []
   };
 }
 
@@ -433,7 +423,7 @@ async function startServer() {
   });
 
   app.put("/api/menu", (req, res) => {
-    if (Array.isArray(req.body) && req.body.length > 0) {
+    if (Array.isArray(req.body)) {
       serverMenuItems = req.body;
       broadcastUpdate('menu_updated', serverMenuItems);
       console.log(`[MENU] Updated full menu with ${serverMenuItems.length} items`);

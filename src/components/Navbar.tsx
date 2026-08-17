@@ -14,7 +14,8 @@ import {
   KeyRound,
   Shield,
   UserCheck,
-  Lock
+  Lock,
+  LogOut
 } from 'lucide-react';
 import { ActiveTab, UserRole } from '../types';
 import { useRestaurant, ROLE_CONFIGS } from '../context/RestaurantContext';
@@ -34,6 +35,8 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenA
     restaurantInfo,
     refreshServerState,
     userRole,
+    currentUser,
+    logoutUser,
     isRoleAllowedTab
   } = useRestaurant();
 
@@ -55,6 +58,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenA
     switch (role) {
       case 'kitchen': return ChefHat;
       case 'cashier': return Calculator;
+      case 'finance': return Wallet;
       case 'admin': return ShieldCheck;
       default: return Shield;
     }
@@ -89,16 +93,19 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenA
               </button>
             </div>
             <p className="text-2xs text-stone-500 hidden md:block">
+              {currentUser?.displayName ? `Đang đăng nhập: ${currentUser.displayName} • ` : ''}
               {userRole === 'kitchen' 
                 ? 'Bộ phận Bếp: Tiếp nhận đơn chế biến và báo hoàn thành món' 
                 : userRole === 'cashier'
                 ? 'Bộ phận Bán Hàng: Quầy POS & Sơ đồ bàn ăn, thu tiền xuất phiếu thu'
+                : userRole === 'finance'
+                ? 'Bộ phận Tài Chính: Sổ Quỹ Thu - Chi, Dòng tiền & Báo cáo kế toán'
                 : 'Ban Quản Trị: Toàn quyền quản lý Bán hàng, Bàn, Bếp, Sổ Quỹ Thu Chi & Thực đơn'}
             </p>
           </div>
         </div>
 
-        {/* Action Controls: Role switch, Sound test, AI Advisor, Refresh */}
+        {/* Action Controls: Role switch, Sound test, AI Advisor, Refresh, Logout */}
         <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap">
           {/* Switch Role Quick Button */}
           <button
@@ -137,6 +144,16 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenA
             className="p-2 rounded-xl text-stone-500 hover:text-stone-800 hover:bg-stone-100 transition-colors border border-stone-200 cursor-pointer"
           >
             <Bell className="w-3.5 h-3.5" />
+          </button>
+
+          {/* Logout Button */}
+          <button
+            onClick={logoutUser}
+            title="Đăng xuất khỏi hệ thống"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold shadow-2xs transition-all cursor-pointer"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Đăng Xuất</span>
           </button>
         </div>
       </div>

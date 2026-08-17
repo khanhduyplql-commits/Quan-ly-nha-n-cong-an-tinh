@@ -114,13 +114,16 @@ export type ActiveTab =
   | 'menu_manage' 
   | 'guide';
 
-export type UserRole = 'admin' | 'cashier' | 'kitchen';
+export type UserRole = 'admin' | 'cashier' | 'finance' | 'kitchen';
 
 export interface UserAccount {
-  role: UserRole;
+  username: string;
   displayName: string;
+  role: UserRole;
   pin: string;
+  password?: string;
   description: string;
+  avatar?: string;
 }
 
 // ==========================================
