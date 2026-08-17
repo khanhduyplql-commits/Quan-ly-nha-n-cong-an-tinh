@@ -9,7 +9,6 @@ import {
   ArrowRight, 
   CheckCircle2, 
   UtensilsCrossed, 
-  Sparkles,
   Building2,
   Phone,
   MapPin,
@@ -17,9 +16,8 @@ import {
   EyeOff,
   AlertCircle
 } from 'lucide-react';
-import { useRestaurant, ROLE_CONFIGS } from '../../context/RestaurantContext';
+import { useRestaurant } from '../../context/RestaurantContext';
 import { UserRole } from '../../types';
-import { DEFAULT_ACCOUNTS } from '../../data/mockData';
 
 export const LoginScreen: React.FC = () => {
   const { loginWithAccount, restaurantInfo } = useRestaurant();
@@ -108,10 +106,7 @@ export const LoginScreen: React.FC = () => {
   const handleSelectRole = (role: UserRole) => {
     setSelectedRole(role);
     setErrorMessage('');
-    const targetOpt = roleOptions.find(r => r.id === role);
-    if (targetOpt) {
-      setPinInput(targetOpt.defaultPin);
-    }
+    setPinInput('');
   };
 
   const handleFormLogin = (e: React.FormEvent) => {
@@ -132,18 +127,6 @@ export const LoginScreen: React.FC = () => {
         setErrorMessage(res.message || 'Mã PIN không chính xác! Vui lòng thử lại.');
       }
     }, 200);
-  };
-
-  const handleQuickLogin = (role: UserRole) => {
-    setSelectedRole(role);
-    const targetOpt = roleOptions.find(r => r.id === role);
-    const pin = targetOpt ? targetOpt.defaultPin : '8888';
-    setPinInput(pin);
-    setIsLoading(true);
-    setTimeout(() => {
-      loginWithAccount(role, pin, rememberMe);
-      setIsLoading(false);
-    }, 150);
   };
 
   return (
@@ -175,16 +158,11 @@ export const LoginScreen: React.FC = () => {
         {/* Left Side: Role Selector Grid */}
         <div className="lg:col-span-7 bg-stone-850/80 backdrop-blur-md rounded-3xl p-6 sm:p-7 border border-stone-700/80 shadow-2xl flex flex-col justify-between">
           <div>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="px-2.5 py-0.5 rounded-full text-2xs font-extrabold uppercase bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                Bước 1: Chọn Vai Trò Làm Việc
-              </span>
-            </div>
             <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
               Phân Quyền Truy Cập Hệ Thống
             </h2>
             <p className="text-xs text-stone-400 mt-1 mb-5">
-              Chọn vai trò tài khoản phù hợp với chức năng của bạn để đăng nhập:
+              Chọn vai trò tài khoản để đăng nhập vào phân hệ làm việc:
             </p>
 
             {/* 4 Role Cards */}
@@ -207,9 +185,6 @@ export const LoginScreen: React.FC = () => {
                         <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${opt.themeColor}`}>
                           <Icon className="w-5 h-5" />
                         </div>
-                        <span className={`px-2 py-0.5 rounded-md text-3xs font-extrabold border ${opt.badgeBg} ${opt.badgeText}`}>
-                          PIN: {opt.defaultPin}
-                        </span>
                       </div>
 
                       <h3 className="text-sm font-bold text-white tracking-tight flex items-center gap-1.5">
@@ -229,16 +204,9 @@ export const LoginScreen: React.FC = () => {
                           <CheckCircle2 className="w-3.5 h-3.5" /> Đã chọn
                         </span>
                       ) : (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleQuickLogin(opt.id);
-                          }}
-                          className="text-3xs font-bold text-stone-300 hover:text-amber-300 hover:underline cursor-pointer"
-                        >
-                          Vào nhanh →
-                        </button>
+                        <span className="text-3xs text-stone-500 font-medium group-hover:text-stone-300">
+                          Nhấn để chọn
+                        </span>
                       )}
                     </div>
                   </div>
@@ -246,22 +214,11 @@ export const LoginScreen: React.FC = () => {
               })}
             </div>
           </div>
-
-          <div className="mt-5 pt-4 border-t border-stone-800 text-2xs text-stone-400 flex items-center justify-between flex-wrap gap-2">
-            <span>💡 Quản lý có toàn quyền, Thu ngân xem POS & Bàn, Thu chi xem Sổ Quỹ.</span>
-            <span className="text-stone-500 font-mono">Mã PIN mặc định hiển thị trên từng thẻ</span>
-          </div>
         </div>
 
         {/* Right Side: PIN Form & Authentication Box */}
         <div className="lg:col-span-5 bg-stone-850/90 backdrop-blur-md rounded-3xl p-6 sm:p-7 border border-stone-700/80 shadow-2xl flex flex-col justify-between">
           <div>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="px-2.5 py-0.5 rounded-full text-2xs font-extrabold uppercase bg-stone-700 text-stone-300 border border-stone-600">
-                Bước 2: Xác Thực Mật Khẩu / PIN
-              </span>
-            </div>
-
             <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-stone-900/80 border border-stone-700/80 mb-5">
               <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${currentRoleOpt.themeColor}`}>
                 {React.createElement(currentRoleOpt.icon, { className: 'w-5 h-5' })}
@@ -292,9 +249,6 @@ export const LoginScreen: React.FC = () => {
               <div>
                 <label className="block text-xs font-bold text-stone-300 mb-1.5 flex items-center justify-between">
                   <span>Mã PIN / Mật Khẩu Tài Khoản</span>
-                  <span className="text-3xs text-stone-400 font-normal">
-                    Gợi ý: <strong className="text-amber-400 font-mono">{currentRoleOpt.defaultPin}</strong>
-                  </span>
                 </label>
 
                 <div className="relative">
@@ -308,7 +262,7 @@ export const LoginScreen: React.FC = () => {
                       setPinInput(e.target.value);
                       setErrorMessage('');
                     }}
-                    placeholder={`Nhập mã PIN (mặc định: ${currentRoleOpt.defaultPin})`}
+                    placeholder="Nhập mã PIN hoặc mật khẩu..."
                     className="w-full pl-10 pr-10 py-3 bg-stone-900 border border-stone-700 rounded-xl text-white placeholder-stone-500 text-sm font-mono tracking-wider focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
                     autoFocus
                   />
@@ -319,31 +273,6 @@ export const LoginScreen: React.FC = () => {
                   >
                     {showPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
-                </div>
-              </div>
-
-              {/* Quick Numpad Shortcuts */}
-              <div>
-                <span className="block text-3xs font-semibold text-stone-400 mb-1.5">
-                  Nhập nhanh mã PIN mẫu:
-                </span>
-                <div className="grid grid-cols-4 gap-1.5">
-                  {['8888', '2222', '6666', '3333'].map((samplePin) => (
-                    <button
-                      key={samplePin}
-                      type="button"
-                      onClick={() => {
-                        setPinInput(samplePin);
-                        if (samplePin === '8888') setSelectedRole('admin');
-                        if (samplePin === '2222') setSelectedRole('cashier');
-                        if (samplePin === '6666') setSelectedRole('finance');
-                        if (samplePin === '3333') setSelectedRole('kitchen');
-                      }}
-                      className="py-1.5 px-2 bg-stone-800 hover:bg-stone-700 border border-stone-700 rounded-lg text-xs font-mono font-bold text-stone-300 hover:text-white transition-colors cursor-pointer"
-                    >
-                      {samplePin}
-                    </button>
-                  ))}
                 </div>
               </div>
 
@@ -358,14 +287,6 @@ export const LoginScreen: React.FC = () => {
                   />
                   <span>Ghi nhớ phiên đăng nhập</span>
                 </label>
-
-                <button
-                  type="button"
-                  onClick={() => setPinInput(currentRoleOpt.defaultPin)}
-                  className="text-amber-400 hover:text-amber-300 text-2xs font-semibold underline cursor-pointer"
-                >
-                  Điền mã {currentRoleOpt.defaultPin}
-                </button>
               </div>
 
               {/* Submit Button */}
@@ -385,18 +306,6 @@ export const LoginScreen: React.FC = () => {
                 )}
               </button>
             </form>
-          </div>
-
-          {/* Quick Direct 1-Click Button */}
-          <div className="mt-5 pt-4 border-t border-stone-800 text-center">
-            <button
-              type="button"
-              onClick={() => handleQuickLogin(selectedRole)}
-              className="text-xs text-stone-400 hover:text-amber-300 transition-colors inline-flex items-center gap-1.5 font-medium cursor-pointer"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-              <span>Đăng nhập trực tiếp 1 chạm với quyền <strong>{currentRoleOpt.title}</strong></span>
-            </button>
           </div>
         </div>
       </main>
