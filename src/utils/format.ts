@@ -49,9 +49,10 @@ export function getLocalDateString(d: Date = new Date()): string {
 /**
  * Generate VietQR Quick Link URL (standard Vietnamese banking QR spec)
  */
-export function getVietQRUrl(bankBin: string, accountNumber: string, amount: number, memo: string): string {
+export function getVietQRUrl(bankBin: string, accountNumber: string, amount: number, memo: string, accountName: string = 'HUYNH THI DIEM'): string {
   const encodedMemo = encodeURIComponent(memo);
-  return `https://img.vietqr.io/image/${bankBin}-${accountNumber}-compact2.png?amount=${amount}&addInfo=${encodedMemo}&accountName=NHA%20AN%20CONG%20AN%20TINH%20QUANG%20NGAI`;
+  const encodedName = encodeURIComponent(accountName);
+  return `https://img.vietqr.io/image/${bankBin}-${accountNumber}-compact2.png?amount=${amount}&addInfo=${encodedMemo}&accountName=${encodedName}`;
 }
 
 /**

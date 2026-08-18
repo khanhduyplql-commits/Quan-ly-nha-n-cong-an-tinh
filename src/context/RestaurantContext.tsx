@@ -453,10 +453,10 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     address: 'Số 174 Đường Hùng Vương, TP. Quảng Ngãi, Tỉnh Quảng Ngãi',
     hotline: '0255 3822 841',
     bankInfo: {
-      bankName: 'MB Bank (Ngân hàng Quân Đội)',
-      accountNumber: '999988886666',
-      accountName: 'NHA AN CONG AN TINH QUANG NGAI',
-      bankBin: '970422'
+      bankName: 'VietinBank (Ngân hàng TMCP Công Thương Việt Nam)',
+      accountNumber: '102873561674',
+      accountName: 'HUYNH THI DIEM',
+      bankBin: '970415'
     }
   };
 

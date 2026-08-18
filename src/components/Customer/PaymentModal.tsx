@@ -1,5 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { X, QrCode, CheckCircle2, ShieldCheck, Copy, Check, Banknote, CreditCard, Sparkles, Receipt, Layers, CheckSquare, Square } from 'lucide-react';
+import { 
+  X, 
+  QrCode, 
+  CheckCircle2, 
+  ShieldCheck, 
+  Copy, 
+  Check, 
+  Banknote, 
+  CreditCard, 
+  Sparkles, 
+  Receipt, 
+  Layers, 
+  CheckSquare, 
+  Square,
+  Maximize2,
+  ZoomIn
+} from 'lucide-react';
 import { useRestaurant } from '../../context/RestaurantContext';
 import { TableOrder } from '../../types';
 import { formatVND, getVietQRUrl, formatTimeHM } from '../../utils/format';
@@ -36,6 +52,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const [discountPercent, setDiscountPercent] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isPaid, setIsPaid] = useState(false);
+  const [isZoomedQR, setIsZoomedQR] = useState(false);
   
   // Selected orders to pay (default to all active orders or targetOrder)
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
@@ -63,7 +80,8 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     restaurantInfo.bankInfo.bankBin,
     restaurantInfo.bankInfo.accountNumber,
     finalTotal,
-    transferMemo
+    transferMemo,
+    restaurantInfo.bankInfo.accountName
   );
 
   const toggleSelectOrder = (orderId: string) => {
@@ -246,52 +264,102 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
               {/* QR Code Canvas / Display */}
               {paymentMethod === 'vietqr' && (
-                <div className="bg-stone-50 border border-stone-200 rounded-2xl p-4 text-center space-y-3">
-                  <div className="inline-block bg-white p-2.5 rounded-2xl shadow-xs border border-stone-200">
+                <div className="bg-stone-50 border border-emerald-200 rounded-3xl p-4 sm:p-5 text-center space-y-3.5 shadow-xs">
+                  <div className="flex items-center justify-between px-1">
+                    <span className="text-2xs font-extrabold text-emerald-800 uppercase tracking-wider flex items-center gap-1">
+                      <CreditCard className="w-3.5 h-3.5 text-emerald-600" />
+                      Mã VietQR Chuyển Khoản Tự Động
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setIsZoomedQR(true)}
+                      className="px-2 py-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 rounded-lg text-2xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                    >
+                      <ZoomIn className="w-3.5 h-3.5" />
+                      <span>Phóng to mã QR</span>
+                    </button>
+                  </div>
+
+                  {/* Large High-Contrast QR Code */}
+                  <div 
+                    onClick={() => setIsZoomedQR(true)}
+                    className="inline-block bg-white p-3.5 sm:p-4 rounded-2xl shadow-md border-2 border-emerald-500/30 cursor-pointer hover:border-emerald-600 transition-all hover:scale-[1.01]"
+                    title="Nhấn để phóng to toàn màn hình"
+                  >
                     <img
                       src={vietQrUrl}
                       alt="VietQR Payment"
-                      className="w-48 h-48 sm:w-52 sm:h-52 object-contain mx-auto rounded-lg"
+                      className="w-56 h-56 sm:w-64 sm:h-64 object-contain mx-auto rounded-lg"
                     />
+                    <div className="mt-2 text-3xs font-bold text-stone-500 flex items-center justify-center gap-1">
+                      <Maximize2 className="w-3 h-3 text-emerald-600" />
+                      <span>Nhấn vào mã QR để phóng to toàn màn hình</span>
+                    </div>
                   </div>
 
-                  <div className="space-y-1 text-xs">
-                    <div className="flex items-center justify-between px-2 text-stone-500">
-                      <span>Chủ tài khoản:</span>
-                      <span className="font-semibold text-stone-800">{restaurantInfo.bankInfo.accountName}</span>
+                  {/* Account Information Card */}
+                  <div className="space-y-1.5 text-xs bg-white p-3 rounded-2xl border border-stone-200 text-left">
+                    <div className="flex items-center justify-between text-stone-600">
+                      <span>Ngân hàng:</span>
+                      <span className="font-bold text-emerald-900">{restaurantInfo.bankInfo.bankName}</span>
                     </div>
-                    <div className="flex items-center justify-between px-2 text-stone-500">
-                      <span>Số tài khoản ({restaurantInfo.bankInfo.bankName}):</span>
-                      <div className="flex items-center gap-1 font-mono font-bold text-stone-800">
+                    <div className="flex items-center justify-between text-stone-600">
+                      <span>Chủ tài khoản:</span>
+                      <span className="font-bold text-stone-900">{restaurantInfo.bankInfo.accountName}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-stone-600 pt-1 border-t border-stone-100">
+                      <span>Số tài khoản:</span>
+                      <div className="flex items-center gap-1.5 font-mono font-black text-sm text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200">
                         <span>{restaurantInfo.bankInfo.accountNumber}</span>
                         <button
                           onClick={handleCopyAccount}
-                          className="p-1 text-stone-400 hover:text-stone-700 cursor-pointer"
-                          title="Sao chép STK"
+                          className="p-1 text-emerald-800 hover:text-emerald-950 cursor-pointer"
+                          title="Sao chép số tài khoản"
                         >
                           {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
                         </button>
                       </div>
                     </div>
-                    <div className="flex items-center justify-between px-2 text-stone-500">
+                    <div className="flex items-center justify-between text-stone-600 pt-1 border-t border-stone-100">
+                      <span>Số tiền thanh toán:</span>
+                      <span className="font-mono font-black text-base text-amber-700">{formatVND(finalTotal)}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-stone-600">
                       <span>Nội dung chuyển khoản:</span>
-                      <span className="font-mono font-bold text-amber-700">{transferMemo}</span>
+                      <span className="font-mono font-bold text-xs text-stone-800 bg-stone-100 px-2 py-0.5 rounded">{transferMemo}</span>
                     </div>
                   </div>
                 </div>
               )}
 
               {paymentMethod === 'momo' && (
-                <div className="bg-pink-50/50 border border-pink-200 rounded-2xl p-5 text-center space-y-3">
-                  <div className="inline-block bg-white p-2.5 rounded-2xl shadow-xs border border-pink-200">
+                <div className="bg-pink-50/50 border border-pink-200 rounded-3xl p-4 sm:p-5 text-center space-y-3.5">
+                  <div className="flex items-center justify-between px-1">
+                    <span className="text-2xs font-extrabold text-pink-900 uppercase tracking-wider">
+                      Mã MoMo / VietQR
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setIsZoomedQR(true)}
+                      className="px-2 py-1 bg-pink-100 hover:bg-pink-200 text-pink-800 rounded-lg text-2xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                    >
+                      <ZoomIn className="w-3.5 h-3.5" />
+                      <span>Phóng to</span>
+                    </button>
+                  </div>
+
+                  <div 
+                    onClick={() => setIsZoomedQR(true)}
+                    className="inline-block bg-white p-3.5 sm:p-4 rounded-2xl shadow-md border-2 border-pink-400/30 cursor-pointer hover:scale-[1.01] transition-all"
+                  >
                     <img
                       src={vietQrUrl}
                       alt="MoMo Payment"
-                      className="w-48 h-48 sm:w-52 sm:h-52 object-contain mx-auto rounded-lg"
+                      className="w-56 h-56 sm:w-64 sm:h-64 object-contain mx-auto rounded-lg"
                     />
                   </div>
                   <p className="text-xs text-pink-900 font-medium">
-                    Mở ứng dụng Ví MoMo và quét mã để thanh toán tự động
+                    Mở ứng dụng Ví MoMo hoặc bất kỳ App Ngân hàng nào để quét mã thanh toán tự động {formatVND(finalTotal)}
                   </p>
                 </div>
               )}
@@ -437,6 +505,64 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           </div>
         )}
       </div>
+
+      {/* Fullscreen Zoomed QR Lightbox Modal */}
+      {isZoomedQR && (
+        <div 
+          className="fixed inset-0 z-60 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in"
+          onClick={() => setIsZoomedQR(false)}
+        >
+          <div 
+            className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl text-center space-y-4 border-2 border-emerald-500 relative animate-in zoom-in-95"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setIsZoomedQR(false)}
+              className="absolute top-4 right-4 p-2 rounded-full bg-stone-100 hover:bg-stone-200 text-stone-600 transition-colors cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div>
+              <span className="text-2xs font-extrabold text-emerald-700 uppercase tracking-wider bg-emerald-100 px-3 py-1 rounded-full">
+                MÃ QR CHUYỂN KHOẢN PHÓNG TO
+              </span>
+              <h3 className="text-lg font-black text-stone-900 mt-2">
+                Quét Mã Thanh Toán VietQR
+              </h3>
+              <p className="text-xs text-stone-500">
+                Bàn {activeTableNumber} • {restaurantInfo.name}
+              </p>
+            </div>
+
+            <div className="p-3 bg-stone-50 rounded-2xl border border-stone-200 inline-block shadow-inner">
+              <img
+                src={vietQrUrl}
+                alt="VietQR Super Large"
+                className="w-72 h-72 sm:w-80 sm:h-80 object-contain mx-auto rounded-xl"
+              />
+            </div>
+
+            <div className="bg-emerald-50 p-3 rounded-2xl border border-emerald-200 text-xs space-y-1 text-emerald-950">
+              <p className="font-bold text-sm text-emerald-900">{restaurantInfo.bankInfo.bankName}</p>
+              <p className="font-mono font-black text-base text-emerald-800 tracking-wider">
+                STK: {restaurantInfo.bankInfo.accountNumber}
+              </p>
+              <p className="font-medium text-xs text-stone-600">{restaurantInfo.bankInfo.accountName}</p>
+              <div className="pt-1 text-base font-black text-amber-700">
+                Số tiền: {formatVND(finalTotal)}
+              </div>
+            </div>
+
+            <button
+              onClick={() => setIsZoomedQR(false)}
+              className="w-full py-3 bg-stone-900 hover:bg-stone-800 text-white rounded-2xl font-bold text-xs transition-colors cursor-pointer"
+            >
+              Thu Nhỏ / Quay Lại
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

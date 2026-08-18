@@ -32,7 +32,10 @@ import {
   TrendingUp,
   X,
   Check,
-  Volume2
+  Volume2,
+  Maximize2,
+  ZoomIn,
+  Copy
 } from 'lucide-react';
 import { useRestaurant } from '../../context/RestaurantContext';
 import { MenuItem, MealCategory, CartItem, RestaurantTable, TableOrder, CashTransaction } from '../../types';
@@ -73,6 +76,8 @@ export const CounterPOS: React.FC = () => {
   // Payment Setup
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'vietqr' | 'card' | 'momo'>('cash');
   const [cashGiven, setCashGiven] = useState<number>(0);
+  const [showLargeQRModal, setShowLargeQRModal] = useState<boolean>(false);
+  const [copiedSTK, setCopiedSTK] = useState<boolean>(false);
 
   // Modals & Feedback
   const [selectedDishForOptions, setSelectedDishForOptions] = useState<MenuItem | null>(null);
@@ -402,9 +407,9 @@ export const CounterPOS: React.FC = () => {
   // VietQR Dynamic Link for Counter QR display
   const vietQrUrl = useMemo(() => {
     if (paymentMethod !== 'vietqr' || finalTotal <= 0) return '';
-    const bankBin = restaurantInfo.bankInfo.bankBin || '970422'; // MB Bank default
-    const accNum = restaurantInfo.bankInfo.accountNumber || '0987654321';
-    const accName = encodeURIComponent(restaurantInfo.bankInfo.accountName || 'NHA AN CONG AN TINH');
+    const bankBin = restaurantInfo.bankInfo.bankBin || '970415'; // VietinBank BIN
+    const accNum = restaurantInfo.bankInfo.accountNumber || '102873561674';
+    const accName = encodeURIComponent(restaurantInfo.bankInfo.accountName || 'HUYNH THI DIEM');
     const memo = encodeURIComponent(`THANH TOAN BAN ${selectedTableNumber === 'counter' ? 'QUAY' : selectedTableNumber} ${finalTotal}D`);
     return `https://img.vietqr.io/image/${bankBin}-${accNum}-compact2.png?amount=${finalTotal}&addInfo=${memo}&accountName=${accName}`;
   }, [paymentMethod, finalTotal, selectedTableNumber, restaurantInfo]);
@@ -935,19 +940,56 @@ export const CounterPOS: React.FC = () => {
 
             {/* VietQR live code preview at counter */}
             {paymentMethod === 'vietqr' && finalTotal > 0 && (
-              <div className="p-3 bg-stone-900 text-white rounded-2xl flex items-center gap-3">
-                <div className="w-20 h-20 bg-white p-1 rounded-xl shrink-0">
+              <div className="p-3.5 bg-stone-900 text-white rounded-3xl space-y-3 border border-stone-800 shadow-md">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <QrCode className="w-4 h-4 text-emerald-400" />
+                    <span className="font-extrabold text-white text-xs">VietQR Tự Động</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowLargeQRModal(true)}
+                    className="px-2 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-2xs font-bold flex items-center gap-1 transition-colors cursor-pointer shadow-xs"
+                    title="Mở màn hình lớn cho khách quét"
+                  >
+                    <Maximize2 className="w-3 h-3" />
+                    <span>Phóng to cho khách</span>
+                  </button>
+                </div>
+
+                {/* Big QR Preview */}
+                <div 
+                  onClick={() => setShowLargeQRModal(true)}
+                  className="bg-white p-2.5 rounded-2xl cursor-pointer hover:ring-2 hover:ring-emerald-400 transition-all text-center shadow-inner"
+                  title="Nhấn để phóng to toàn màn hình"
+                >
                   <img
                     src={vietQrUrl}
                     alt="VietQR Thu Ngân"
-                    className="w-full h-full object-contain"
+                    className="w-44 h-44 sm:w-48 sm:h-48 object-contain mx-auto rounded-lg"
                   />
+                  <span className="text-3xs font-bold text-stone-500 block mt-1">
+                    🔍 Chạm để mở màn hình quét siêu lớn
+                  </span>
                 </div>
-                <div className="space-y-0.5 text-2xs">
-                  <p className="font-black text-amber-400 uppercase text-3xs">Quét mã VietQR chuyển khoản</p>
-                  <p className="font-extrabold text-white text-xs">{formatVND(finalTotal)}</p>
-                  <p className="text-stone-300 text-3xs">{restaurantInfo.bankInfo.bankName}: {restaurantInfo.bankInfo.accountNumber}</p>
-                  <p className="text-stone-400 text-3xs">{restaurantInfo.bankInfo.accountName}</p>
+
+                <div className="space-y-1 text-2xs bg-stone-850 p-2.5 rounded-xl border border-stone-750">
+                  <div className="flex items-center justify-between">
+                    <span className="text-stone-400">Số tiền:</span>
+                    <span className="font-black text-amber-400 text-sm">{formatVND(finalTotal)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-stone-400">Ngân hàng:</span>
+                    <span className="font-bold text-stone-200">{restaurantInfo.bankInfo.bankName}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-stone-400">STK:</span>
+                    <span className="font-mono font-bold text-emerald-400 text-xs">{restaurantInfo.bankInfo.accountNumber}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-stone-400">Chủ TK:</span>
+                    <span className="font-medium text-stone-300 text-3xs">{restaurantInfo.bankInfo.accountName}</span>
+                  </div>
                 </div>
               </div>
             )}
@@ -1095,6 +1137,108 @@ export const CounterPOS: React.FC = () => {
             setCompletedOrder(null);
           }}
         />
+      )}
+
+      {/* ========================================================= */}
+      {/* MODAL: MÀN HÌNH VIETQR SIÊU LỚN CHO KHÁCH QUÉT TẠI QUẦY  */}
+      {/* ========================================================= */}
+      {showLargeQRModal && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in"
+          onClick={() => setShowLargeQRModal(false)}
+        >
+          <div 
+            className="bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl text-center space-y-4 border-2 border-emerald-500 relative animate-in zoom-in-95"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setShowLargeQRModal(false)}
+              className="absolute top-4 right-4 p-2.5 rounded-full bg-stone-100 hover:bg-stone-200 text-stone-600 transition-colors cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* Header with Vietcombank & Restaurant Brand */}
+            <div>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-black uppercase tracking-wider mb-2">
+                <QrCode className="w-4 h-4 text-emerald-600" />
+                MÃ VIETQR CHUYỂN KHOẢN TỰ ĐỘNG
+              </div>
+              <h2 className="text-xl font-black text-stone-900">
+                {restaurantInfo.name}
+              </h2>
+              <p className="text-xs text-stone-500">
+                {selectedTableNumber === 'counter' ? 'Thanh toán tại Quầy thu ngân' : `Thanh toán Bàn ${selectedTableNumber}`} • {posCart.reduce((s, i) => s + i.quantity, 0)} món
+              </p>
+            </div>
+
+            {/* Super Large QR Code (300px - 360px) */}
+            <div className="bg-stone-50 p-4 rounded-3xl border border-stone-200 inline-block shadow-md">
+              <img
+                src={vietQrUrl}
+                alt="VietQR Super Large Screen"
+                className="w-72 h-72 sm:w-88 sm:h-88 object-contain mx-auto rounded-xl"
+              />
+            </div>
+
+            {/* Payment Details Box */}
+            <div className="bg-emerald-50/90 border border-emerald-200 rounded-2xl p-4 text-left space-y-1.5 text-xs">
+              <div className="flex justify-between items-center text-emerald-950">
+                <span className="text-stone-600">Ngân hàng thụ hưởng:</span>
+                <span className="font-bold text-emerald-900">{restaurantInfo.bankInfo.bankName}</span>
+              </div>
+              <div className="flex justify-between items-center text-emerald-950">
+                <span className="text-stone-600">Số tài khoản:</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono font-black text-base text-emerald-800 tracking-wider">
+                    {restaurantInfo.bankInfo.accountNumber}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(restaurantInfo.bankInfo.accountNumber);
+                      setCopiedSTK(true);
+                      setTimeout(() => setCopiedSTK(false), 2000);
+                    }}
+                    className="p-1 text-emerald-700 hover:text-emerald-900 cursor-pointer"
+                    title="Sao chép số tài khoản"
+                  >
+                    {copiedSTK ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+              <div className="flex justify-between items-center text-emerald-950">
+                <span className="text-stone-600">Chủ tài khoản:</span>
+                <span className="font-semibold text-stone-800">{restaurantInfo.bankInfo.accountName}</span>
+              </div>
+              <div className="flex justify-between items-center pt-2 border-t border-emerald-200/80">
+                <span className="text-stone-700 font-bold">Số tiền thanh toán:</span>
+                <span className="font-mono font-black text-xl text-amber-700">{formatVND(finalTotal)}</span>
+              </div>
+            </div>
+
+            {/* Close / Action */}
+            <div className="grid grid-cols-2 gap-3 pt-1">
+              <button
+                type="button"
+                onClick={() => setShowLargeQRModal(false)}
+                className="py-3 px-4 rounded-2xl bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold text-xs transition-colors cursor-pointer"
+              >
+                Thu nhỏ lại
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowLargeQRModal(false);
+                  handleCollectAndPushReceipt();
+                }}
+                className="py-3 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-colors cursor-pointer shadow-sm"
+              >
+                Xác nhận đã nhận tiền
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
