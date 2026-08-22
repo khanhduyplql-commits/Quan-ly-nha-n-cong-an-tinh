@@ -63,8 +63,8 @@ export const KitchenKDS: React.FC = () => {
   const pendingCalls = serviceCalls.filter(c => c.status === 'pending');
 
   const pendingCount = orders.filter(o => o.status === 'pending').length;
-  const cookingCount = orders.filter(o => o.status === 'cooking').length;
-  const servedCount = orders.filter(o => o.status === 'served').length;
+  const cookingCount = orders.filter(o => o.status === 'cooking' || (o.status as string === 'paid' && o.items.some(i => i.status !== 'served'))).length;
+  const servedCount = orders.filter(o => o.status === 'served' || (o.items.length > 0 && o.items.every(i => i.status === 'served'))).length;
   const activeOrdersCount = pendingCount + cookingCount;
 
   // Filter orders
@@ -73,16 +73,20 @@ export const KitchenKDS: React.FC = () => {
       if (statusFilter !== 'all') return false;
     }
 
-    if (statusFilter === 'active' && order.status !== 'pending' && order.status !== 'cooking') {
+    const isOrderCooking = order.status === 'cooking' || (order.status as string === 'paid' && order.items.some(i => i.status !== 'served'));
+    const isOrderPending = order.status === 'pending';
+    const isOrderServed = order.status === 'served' || (order.items.length > 0 && order.items.every(i => i.status === 'served'));
+
+    if (statusFilter === 'active' && !isOrderPending && !isOrderCooking) {
       return false;
     }
-    if (statusFilter === 'pending' && order.status !== 'pending') {
+    if (statusFilter === 'pending' && !isOrderPending) {
       return false;
     }
-    if (statusFilter === 'cooking' && order.status !== 'cooking') {
+    if (statusFilter === 'cooking' && !isOrderCooking) {
       return false;
     }
-    if (statusFilter === 'served' && order.status !== 'served') {
+    if (statusFilter === 'served' && !isOrderServed) {
       return false;
     }
 

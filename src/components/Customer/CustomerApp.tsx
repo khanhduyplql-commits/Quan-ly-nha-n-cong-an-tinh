@@ -22,7 +22,8 @@ import {
   Crown,
   CheckCircle2,
   Volume2,
-  X
+  X,
+  PlusCircle
 } from 'lucide-react';
 import { useRestaurant } from '../../context/RestaurantContext';
 import { MenuItem, MealCategory, CartItem, TableOrder } from '../../types';
@@ -45,6 +46,8 @@ export const CustomerApp: React.FC = () => {
     cartTotal, 
     cartItemCount, 
     addToCart, 
+    removeFromCart,
+    updateCartItemQuantity,
     activeTableOrders,
     restaurantInfo,
     kitchenLiveAlert,
@@ -77,7 +80,8 @@ export const CustomerApp: React.FC = () => {
   };
 
   const categories = [
-    { id: 'all' as MealCategory, label: 'Tất cả món', icon: Utensils },
+    { id: 'all' as MealCategory, label: 'Tất cả thực đơn', icon: Utensils },
+    { id: 'sides_addons' as MealCategory, label: '🍚 Món Thêm & Ăn Kèm', icon: Sparkles },
     { id: 'hotpot_grill' as MealCategory, label: 'Lẩu & Nướng', icon: Flame },
     { id: 'rice_noodles' as MealCategory, label: 'Cơm & Phở Mì', icon: Soup },
     { id: 'main' as MealCategory, label: 'Món Chính', icon: ChefHat },
@@ -85,6 +89,15 @@ export const CustomerApp: React.FC = () => {
     { id: 'drinks' as MealCategory, label: 'Đồ Uống', icon: Coffee },
     { id: 'dessert' as MealCategory, label: 'Tráng Miệng', icon: IceCream },
   ];
+
+  // Map of menuItemId -> total quantity in cart
+  const cartCountMap = useMemo(() => {
+    const map: Record<string, number> = {};
+    cart.forEach(item => {
+      map[item.menuItemId] = (map[item.menuItemId] || 0) + item.quantity;
+    });
+    return map;
+  }, [cart]);
 
   // Filtered menu
   const filteredItems = useMemo(() => {
@@ -121,6 +134,19 @@ export const CustomerApp: React.FC = () => {
     };
     addToCart(cartItem);
     showToast(`Đã thêm 1 "${item.name}" vào giỏ hàng`);
+  };
+
+  const handleRemoveOne = (item: MenuItem) => {
+    // Find the matching cart item to decrement
+    const targetItem = cart.find(c => c.menuItemId === item.id);
+    if (targetItem) {
+      if (targetItem.quantity > 1) {
+        updateCartItemQuantity(targetItem.id, -1);
+      } else {
+        removeFromCart(targetItem.id);
+      }
+      showToast(`Đã giảm 1 "${item.name}" khỏi giỏ hàng`);
+    }
   };
 
   const handleAddFromModal = (cartItem: CartItem) => {
@@ -175,7 +201,7 @@ export const CustomerApp: React.FC = () => {
                 className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition-all active:scale-95 cursor-pointer shadow-xs relative"
               >
                 <ShoppingCart className="w-4 h-4" />
-                <span>Giỏ hàng</span>
+                <span>Giỏ ({cartItemCount})</span>
                 {cartItemCount > 0 && (
                   <span className="px-1.5 py-0.2 bg-red-600 text-white rounded-full text-3xs font-extrabold">
                     {cartItemCount}
@@ -232,23 +258,23 @@ export const CustomerApp: React.FC = () => {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Tìm tên món, hương vị (phở bò, lẩu thái, bò nướng, cà phê, gỏi cuốn...)"
+              placeholder="Tìm món, món ăn kèm (cơm thêm, trứng ốp la, phở, bò nướng, lẩu, trà đá...)"
               className="w-full pl-10 pr-4 py-2.5 bg-stone-50 hover:bg-stone-100/60 focus:bg-white text-xs sm:text-sm rounded-2xl border border-stone-200 focus:outline-none focus:ring-2 focus:ring-amber-500 transition-colors shadow-2xs"
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700 text-xs px-1.5 py-0.5 rounded-full hover:bg-stone-200 cursor-pointer"
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 text-xs font-bold"
               >
                 ✕
               </button>
             )}
           </div>
 
-          {/* Realtime Live Kitchen Alert for this Table */}
-          {kitchenLiveAlert && (kitchenLiveAlert.tableNumber === activeTableNumber || !kitchenLiveAlert.tableNumber) && (
+          {/* Live Kitchen Status Popup Alert */}
+          {kitchenLiveAlert && (
             <div className={`mt-3.5 p-3 rounded-2xl border flex items-center justify-between gap-3 shadow-md animate-in fade-in slide-in-from-top-2 ${
-              kitchenLiveAlert.type === 'served'
+              (kitchenLiveAlert.status as any) === 'served' || (kitchenLiveAlert as any).type === 'served'
                 ? 'bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-100 border-emerald-300 text-emerald-950'
                 : 'bg-gradient-to-r from-orange-50 via-amber-50 to-orange-100 border-orange-300 text-orange-950'
             }`}>
@@ -257,14 +283,14 @@ export const CustomerApp: React.FC = () => {
                 className="flex items-center gap-2.5 cursor-pointer flex-1 min-w-0"
               >
                 <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 shadow-xs ${
-                  kitchenLiveAlert.type === 'served' ? 'bg-emerald-600 text-white' : 'bg-orange-600 text-white animate-bounce'
+                  (kitchenLiveAlert.status as any) === 'served' || (kitchenLiveAlert as any).type === 'served' ? 'bg-emerald-600 text-white' : 'bg-orange-600 text-white animate-bounce'
                 }`}>
-                  {kitchenLiveAlert.type === 'served' ? <CheckCircle2 className="w-5 h-5" /> : <Flame className="w-5 h-5" />}
+                  {(kitchenLiveAlert.status as any) === 'served' || (kitchenLiveAlert as any).type === 'served' ? <CheckCircle2 className="w-5 h-5" /> : <Flame className="w-5 h-5" />}
                 </div>
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5">
                     <span className="text-2xs font-extrabold uppercase tracking-wide px-2 py-0.5 rounded-full bg-white/80 border border-current shadow-2xs">
-                      {kitchenLiveAlert.type === 'served' ? '✨ Bếp đã lên món' : '🔥 Bếp đã tiếp nhận'}
+                      {(kitchenLiveAlert.status as any) === 'served' || (kitchenLiveAlert as any).type === 'served' ? '✨ Bếp đã lên món' : '🔥 Bếp đã tiếp nhận'}
                     </span>
                   </div>
                   <p className="text-xs font-bold truncate mt-0.5">
@@ -291,7 +317,7 @@ export const CustomerApp: React.FC = () => {
             </div>
           )}
 
-          {/* Active Orders Quick Progress Banner (if no active popup alert) */}
+          {/* Active Orders Quick Progress Banner & Quick Add-on button */}
           {!kitchenLiveAlert && activeTableOrders.length > 0 && (
             <div 
               onClick={() => setIsOrderTrackerOpen(true)}
@@ -302,10 +328,10 @@ export const CustomerApp: React.FC = () => {
                   <ChefHat className="w-3.5 h-3.5" />
                 </div>
                 <div className="truncate">
-                  <span className="font-extrabold text-stone-900">Tiến độ bếp: </span>
+                  <span className="font-extrabold text-stone-900">Bàn {activeTableNumber} đang có {totalActiveOrdered} món: </span>
                   <span className="text-stone-600">
                     {activeTableOrders.every(o => o.status === 'served') 
-                      ? '✨ Bếp đã lên đủ món cho bàn của bạn'
+                      ? '✨ Bếp đã lên đủ món • Quý khách có thể gọi thêm bất cứ lúc nào'
                       : activeTableOrders.some(o => o.status === 'cooking')
                       ? '🔥 Bếp đang thực hiện chế biến món'
                       : '⏳ Đơn đã gửi tới bếp, chờ tiếp nhận'
@@ -313,7 +339,9 @@ export const CustomerApp: React.FC = () => {
                   </span>
                 </div>
               </div>
-              <span className="text-2xs font-extrabold text-orange-700 underline shrink-0">Chi tiết →</span>
+              <span className="text-2xs font-extrabold text-orange-700 bg-white px-2 py-1 rounded-lg border border-orange-200 shrink-0 shadow-2xs">
+                ➕ Xem tiến độ / Gọi thêm món →
+              </span>
             </div>
           )}
         </div>
@@ -332,7 +360,7 @@ export const CustomerApp: React.FC = () => {
                   onClick={() => setSelectedCategory(cat.id)}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
                     isSelected
-                      ? 'bg-stone-900 text-white shadow-xs scale-102'
+                      ? 'bg-stone-900 text-white shadow-xs scale-102 font-bold'
                       : 'bg-stone-100 hover:bg-stone-200/80 text-stone-700'
                   }`}
                 >
@@ -390,7 +418,7 @@ export const CustomerApp: React.FC = () => {
           <h2 className="text-sm sm:text-base font-bold text-stone-800">
             {categories.find(c => c.id === selectedCategory)?.label} ({filteredItems.length} món)
           </h2>
-          <span className="text-2xs text-stone-500">Chạm vào món để chọn hương vị & topping</span>
+          <span className="text-2xs text-stone-500 font-medium">1 Khách có thể chọn nhiều món & gọi thêm kèm</span>
         </div>
 
         {filteredItems.length === 0 ? (
@@ -417,8 +445,10 @@ export const CustomerApp: React.FC = () => {
               <FoodCard
                 key={item.id}
                 item={item}
+                cartCount={cartCountMap[item.id] || 0}
                 onSelect={(dish) => setSelectedDish(dish)}
                 onQuickAdd={(dish) => handleQuickAdd(dish)}
+                onRemoveOne={(dish) => handleRemoveOne(dish)}
               />
             ))}
           </div>
@@ -439,7 +469,7 @@ export const CustomerApp: React.FC = () => {
                 </span>
               </div>
               <div>
-                <span className="text-2xs text-stone-400 block font-medium">Bàn {activeTableNumber} • {cart.length} loại món</span>
+                <span className="text-2xs text-stone-400 block font-medium">Bàn {activeTableNumber} • {cartItemCount} món đang chọn</span>
                 <span className="text-sm font-extrabold text-amber-400">{formatVND(cartTotal)}</span>
               </div>
             </div>
@@ -506,6 +536,10 @@ export const CustomerApp: React.FC = () => {
           setPaymentTargetOrder(null);
         }}
         targetOrder={paymentTargetOrder}
+        onOpenOrderTracker={() => {
+          setIsPaymentOpen(false);
+          setIsOrderTrackerOpen(true);
+        }}
       />
 
       <ReviewFeedbackModal

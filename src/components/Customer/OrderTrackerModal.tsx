@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Clock, CheckCircle2, Flame, CreditCard, RefreshCw, ChefHat, Sparkles, BellRing, Utensils } from 'lucide-react';
+import { X, Clock, CheckCircle2, Flame, CreditCard, RefreshCw, ChefHat, Sparkles, BellRing, Utensils, Plus } from 'lucide-react';
 import { useRestaurant } from '../../context/RestaurantContext';
 import { TableOrder } from '../../types';
 import { formatVND, formatTimeHM } from '../../utils/format';
@@ -15,7 +15,10 @@ export const OrderTrackerModal: React.FC<OrderTrackerModalProps> = ({ isOpen, on
 
   if (!isOpen) return null;
 
-  const totalUnpaid = activeTableOrders.reduce((sum, ord) => sum + ord.totalAmount, 0);
+  const totalAmount = activeTableOrders.reduce((sum, ord) => sum + ord.totalAmount, 0);
+  const totalUnpaid = activeTableOrders
+    .filter(ord => ord.paymentStatus === 'unpaid')
+    .reduce((sum, ord) => sum + ord.totalAmount, 0);
   const totalItemsCount = activeTableOrders.reduce((sum, ord) => sum + ord.items.reduce((s, i) => s + i.quantity, 0), 0);
   
   // Calculate overall progress across all batches
@@ -115,9 +118,16 @@ export const OrderTrackerModal: React.FC<OrderTrackerModalProps> = ({ isOpen, on
               return (
                 <div key={order.id} className="bg-stone-50 rounded-2xl p-4 border border-stone-200 space-y-3 shadow-2xs">
                   <div className="flex items-center justify-between border-b border-stone-200/80 pb-2">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-bold text-stone-900 text-sm">{order.orderNumber}</span>
                       <span className="text-xs text-stone-400">• Đợt {idx + 1} ({formatTimeHM(order.createdAt)})</span>
+                      <span className={`text-3xs font-extrabold px-2 py-0.5 rounded-full border ${
+                        order.paymentStatus === 'paid'
+                          ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                          : 'bg-amber-100 text-amber-800 border-amber-300'
+                      }`}>
+                        {order.paymentStatus === 'paid' ? '💳 Đã TT' : '⏳ Chưa TT'}
+                      </span>
                     </div>
 
                     {/* Overall order status badge */}
@@ -221,22 +231,62 @@ export const OrderTrackerModal: React.FC<OrderTrackerModalProps> = ({ isOpen, on
         {/* Footer with Payment Trigger */}
         {activeTableOrders.length > 0 && (
           <div className="p-4 sm:p-5 border-t border-stone-200 bg-stone-50 space-y-3">
-            <div className="flex items-center justify-between text-stone-900 font-extrabold text-base">
-              <span>Tổng cộng ({totalItemsCount} món):</span>
-              <span className="text-orange-600 text-lg font-black">{formatVND(totalUnpaid)}</span>
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-stone-900 font-extrabold text-sm">
+                <span>Tổng giá trị ({totalItemsCount} món):</span>
+                <span className="text-stone-900 font-black">{formatVND(totalAmount)}</span>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span>Trạng thái thanh toán:</span>
+                {totalUnpaid === 0 ? (
+                  <span className="text-emerald-700 font-extrabold flex items-center gap-1">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    Đã thanh toán đủ ({formatVND(totalAmount)})
+                  </span>
+                ) : (
+                  <span className="text-orange-600 font-extrabold">
+                    Chưa thanh toán: {formatVND(totalUnpaid)}
+                  </span>
+                )}
+              </div>
             </div>
 
-            <button
-              id="btn-open-payment-modal"
-              onClick={() => {
-                onClose();
-                onOpenPayment();
-              }}
-              className="w-full py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 active:scale-98 text-white font-extrabold rounded-2xl shadow-lg shadow-emerald-950/20 flex items-center justify-center gap-2 transition-all cursor-pointer text-sm"
-            >
-              <CreditCard className="w-4 h-4" />
-              <span>Yêu Cầu Thanh Toán / Quét Mã VietQR</span>
-            </button>
+            <div className="flex gap-2">
+              <button
+                id="btn-order-more-tracker"
+                onClick={onClose}
+                className="flex-1 py-3 bg-amber-500 hover:bg-amber-600 active:scale-98 text-white font-extrabold rounded-2xl shadow-sm flex items-center justify-center gap-1.5 transition-all cursor-pointer text-xs sm:text-sm"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Chọn & Gọi Thêm Món</span>
+              </button>
+
+              {totalUnpaid > 0 ? (
+                <button
+                  id="btn-open-payment-modal"
+                  onClick={() => {
+                    onClose();
+                    onOpenPayment();
+                  }}
+                  className="flex-1 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 active:scale-98 text-white font-extrabold rounded-2xl shadow-sm flex items-center justify-center gap-1.5 transition-all cursor-pointer text-xs sm:text-sm"
+                >
+                  <CreditCard className="w-4 h-4" />
+                  <span>Thanh Toán ({formatVND(totalUnpaid)})</span>
+                </button>
+              ) : (
+                <button
+                  id="btn-view-invoice-tracker"
+                  onClick={() => {
+                    onClose();
+                    onOpenPayment();
+                  }}
+                  className="flex-1 py-3 bg-stone-800 hover:bg-stone-900 active:scale-98 text-white font-extrabold rounded-2xl shadow-sm flex items-center justify-center gap-1.5 transition-all cursor-pointer text-xs sm:text-sm"
+                >
+                  <CreditCard className="w-4 h-4 text-emerald-400" />
+                  <span>Xem Lại Hóa Đơn / QR</span>
+                </button>
+              )}
+            </div>
           </div>
         )}
       </div>

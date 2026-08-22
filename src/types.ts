@@ -4,6 +4,7 @@ export type MealCategory =
   | 'main'
   | 'hotpot_grill'
   | 'rice_noodles'
+  | 'sides_addons'
   | 'drinks'
   | 'dessert';
 

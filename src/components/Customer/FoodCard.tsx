@@ -1,27 +1,35 @@
 import React from 'react';
-import { Plus, Flame, Clock, Leaf } from 'lucide-react';
+import { Plus, Minus, Flame, Clock, Leaf, Sparkles, ShoppingBag } from 'lucide-react';
 import { MenuItem } from '../../types';
 import { formatVND } from '../../utils/format';
 
 interface FoodCardProps {
   item: MenuItem;
+  cartCount?: number;
   onSelect: (item: MenuItem) => void;
   onQuickAdd: (item: MenuItem) => void;
+  onRemoveOne?: (item: MenuItem) => void;
 }
 
-export const FoodCard: React.FC<FoodCardProps> = ({ item, onSelect, onQuickAdd }) => {
+export const FoodCard: React.FC<FoodCardProps> = ({ 
+  item, 
+  cartCount = 0, 
+  onSelect, 
+  onQuickAdd,
+  onRemoveOne 
+}) => {
   const hasOptions = item.optionGroups && item.optionGroups.length > 0;
 
   return (
     <div
       id={`dish-card-${item.id}`}
-      className={`group bg-white rounded-2xl border border-stone-200/80 overflow-hidden shadow-xs hover:shadow-md transition-all duration-200 flex flex-col justify-between ${
-        !item.isAvailable ? 'opacity-60 grayscale-50' : ''
-      }`}
+      className={`group bg-white rounded-2xl border transition-all duration-200 flex flex-col justify-between overflow-hidden shadow-xs hover:shadow-md ${
+        cartCount > 0 ? 'border-amber-400 ring-2 ring-amber-400/20' : 'border-stone-200/80'
+      } ${!item.isAvailable ? 'opacity-60 grayscale-50' : ''}`}
     >
       <div 
         onClick={() => item.isAvailable && onSelect(item)}
-        className="cursor-pointer"
+        className="cursor-pointer relative"
       >
         {/* Image & Badges */}
         <div className="relative aspect-4/3 w-full overflow-hidden bg-stone-100">
@@ -52,7 +60,21 @@ export const FoodCard: React.FC<FoodCardProps> = ({ item, onSelect, onQuickAdd }
                 🌶️ Cay
               </span>
             )}
+            {item.category === 'sides_addons' && (
+              <span className="flex items-center gap-1 bg-teal-600/90 text-white text-2xs font-bold px-2 py-0.5 rounded-full shadow-xs backdrop-blur-xs">
+                <Sparkles className="w-3 h-3 fill-white" />
+                Món thêm
+              </span>
+            )}
           </div>
+
+          {/* Cart count badge */}
+          {cartCount > 0 && (
+            <div className="absolute top-2.5 right-2.5 bg-amber-600 text-white text-xs font-black px-2 py-0.5 rounded-full shadow-md z-10 flex items-center gap-1 animate-in zoom-in">
+              <ShoppingBag className="w-3 h-3" />
+              <span>x{cartCount}</span>
+            </div>
+          )}
 
           {/* Prep time badge */}
           <div className="absolute bottom-2 right-2 flex items-center gap-1 bg-black/60 text-white text-2xs px-2 py-0.5 rounded-md backdrop-blur-xs">
@@ -80,7 +102,7 @@ export const FoodCard: React.FC<FoodCardProps> = ({ item, onSelect, onQuickAdd }
 
           {/* Tags */}
           {item.tags && item.tags.length > 0 && (
-            <div className="flex flex-wrap gap-1 mt-2.5">
+            <div className="flex flex-wrap gap-1 mt-2">
               {item.tags.slice(0, 2).map((t, idx) => (
                 <span key={idx} className="text-3xs font-medium px-2 py-0.5 rounded-md bg-stone-100 text-stone-600 border border-stone-200">
                   {t}
@@ -91,35 +113,63 @@ export const FoodCard: React.FC<FoodCardProps> = ({ item, onSelect, onQuickAdd }
         </div>
       </div>
 
-      {/* Bottom Pricing & Add button */}
-      <div className="px-3.5 pb-3.5 sm:px-4 sm:pb-4 pt-1 flex items-center justify-between border-t border-stone-100">
+      {/* Bottom Pricing & Quick Multi-Add Buttons */}
+      <div className="px-3.5 pb-3.5 sm:px-4 sm:pb-4 pt-1 flex items-center justify-between border-t border-stone-100 gap-2">
         <div>
-          <div className="font-extrabold text-amber-600 text-base sm:text-lg">
+          <div className="font-extrabold text-amber-600 text-sm sm:text-base">
             {formatVND(item.price)}
           </div>
           {item.originalPrice && item.originalPrice > item.price && (
-            <div className="text-stone-400 text-xs line-through">
+            <div className="text-stone-400 text-3xs line-through">
               {formatVND(item.originalPrice)}
             </div>
           )}
         </div>
 
         {item.isAvailable && (
-          <button
-            id={`btn-add-${item.id}`}
-            onClick={(e) => {
-              e.stopPropagation();
-              if (hasOptions) {
-                onSelect(item);
-              } else {
-                onQuickAdd(item);
-              }
-            }}
-            className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 active:scale-95 text-white text-xs font-semibold px-3 py-2 rounded-xl transition-all shadow-xs cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            <span>{hasOptions ? 'Chọn món' : 'Thêm'}</span>
-          </button>
+          <div className="flex items-center gap-1.5">
+            {cartCount > 0 && onRemoveOne && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRemoveOne(item);
+                }}
+                className="w-7 h-7 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 flex items-center justify-center transition-all active:scale-95 cursor-pointer"
+                title="Giảm 1"
+              >
+                <Minus className="w-3.5 h-3.5" />
+              </button>
+            )}
+
+            {cartCount > 0 && (
+              <span className="font-black text-xs text-amber-700 px-1">
+                {cartCount}
+              </span>
+            )}
+
+            <button
+              id={`btn-add-${item.id}`}
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (hasOptions) {
+                  onSelect(item);
+                } else {
+                  onQuickAdd(item);
+                }
+              }}
+              className={`flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-xl transition-all shadow-xs active:scale-95 cursor-pointer ${
+                cartCount > 0
+                  ? 'bg-amber-600 hover:bg-amber-700 text-white'
+                  : 'bg-amber-500 hover:bg-amber-600 text-white'
+              }`}
+              title={hasOptions ? 'Chọn tùy chọn & Món thêm' : 'Thêm vào giỏ'}
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>{hasOptions ? 'Tùy chọn' : 'Thêm'}</span>
+            </button>
+          </div>
         )}
       </div>
     </div>

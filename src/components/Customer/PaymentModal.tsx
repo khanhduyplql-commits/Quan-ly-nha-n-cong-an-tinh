@@ -14,7 +14,9 @@ import {
   CheckSquare, 
   Square,
   Maximize2,
-  ZoomIn
+  ZoomIn,
+  Flame,
+  ChefHat
 } from 'lucide-react';
 import { useRestaurant } from '../../context/RestaurantContext';
 import { TableOrder } from '../../types';
@@ -25,6 +27,7 @@ interface PaymentModalProps {
   isOpen: boolean;
   onClose: () => void;
   onPaymentSuccess?: () => void;
+  onOpenOrderTracker?: () => void;
   targetOrder?: TableOrder | null;
 }
 
@@ -32,6 +35,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   isOpen, 
   onClose, 
   onPaymentSuccess,
+  onOpenOrderTracker,
   targetOrder 
 }) => {
   const { 
@@ -53,19 +57,27 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [isPaid, setIsPaid] = useState(false);
   const [isZoomedQR, setIsZoomedQR] = useState(false);
+  const [paidSummary, setPaidSummary] = useState<{
+    orderNumber: string;
+    amount: number;
+    itemsSummary: string;
+  } | null>(null);
   
-  // Selected orders to pay (default to all active orders or targetOrder)
+  // Selected orders to pay (default to unpaid orders or targetOrder)
+  const unpaidOrders = activeTableOrders.filter(o => o.paymentStatus === 'unpaid');
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
 
   useEffect(() => {
     if (targetOrder) {
       setSelectedOrderIds([targetOrder.id]);
+    } else if (unpaidOrders.length > 0) {
+      setSelectedOrderIds(unpaidOrders.map(o => o.id));
     } else if (activeTableOrders.length > 0) {
-      setSelectedOrderIds(activeTableOrders.map(o => o.id));
+      setSelectedOrderIds([activeTableOrders[0].id]);
     } else {
       setSelectedOrderIds([]);
     }
-  }, [isOpen, targetOrder, activeTableOrders]);
+  }, [isOpen, targetOrder, activeTableOrders.length]);
 
   if (!isOpen) return null;
 
@@ -120,7 +132,13 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     setIsProcessing(true);
     
     setTimeout(async () => {
+      let orderNumForSummary = '';
+      let itemsListSummary = '';
+
       if (ordersToPay.length > 0) {
+        orderNumForSummary = ordersToPay.map(o => o.orderNumber).join(', ');
+        itemsListSummary = ordersToPay.flatMap(o => o.items.map(i => `${i.name} (x${i.quantity})`)).join(', ');
+        
         const batchPayments = ordersToPay.map(o => {
           const oDiscount = Math.round(o.totalAmount * (discountPercent / 100));
           const oFinal = Math.max(0, o.totalAmount - oDiscount);
@@ -134,19 +152,22 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
         await payMultipleOrders(batchPayments);
       } else if (cart.length > 0) {
+        itemsListSummary = cart.map(i => `${i.name} (x${i.quantity})`).join(', ');
         const newOrder = submitOrder();
+        orderNumForSummary = newOrder.orderNumber;
         payOrder(newOrder.id, paymentMethod, finalTotal, newOrder);
       } else {
         // Fallback for direct table billing
         const directOrderId = `ord-direct-${Date.now()}`;
+        orderNumForSummary = `#${Math.floor(100 + Math.random() * 900)}`;
         const dummyOrder: TableOrder = {
           id: directOrderId,
-          orderNumber: `#${Math.floor(100 + Math.random() * 900)}`,
+          orderNumber: orderNumForSummary,
           tableNumber: activeTableNumber,
           tableName: currentTable.name,
           customerName: `Khách ${currentTable.name}`,
           createdAt: Date.now(),
-          status: 'paid',
+          status: 'cooking',
           paymentStatus: 'paid',
           totalAmount: finalTotal > 0 ? finalTotal : 100000,
           items: [],
@@ -154,6 +175,12 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         };
         payOrder(directOrderId, paymentMethod, finalTotal > 0 ? finalTotal : 100000, dummyOrder);
       }
+
+      setPaidSummary({
+        orderNumber: orderNumForSummary || `#${activeTableNumber}`,
+        amount: finalTotal,
+        itemsSummary: itemsListSummary || 'Các món ăn tại bàn'
+      });
 
       setIsProcessing(false);
       setIsPaid(true);
@@ -202,20 +229,60 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         {/* Body */}
         <div className="p-4 sm:p-5 overflow-y-auto space-y-4">
           {isPaid ? (
-            <div className="py-8 text-center space-y-3">
-              <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto">
+            <div className="py-6 text-center space-y-4">
+              <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-inner">
                 <CheckCircle2 className="w-10 h-10" />
               </div>
-              <h3 className="font-bold text-stone-900 text-lg">Thanh Toán Hoàn Tất!</h3>
-              <p className="text-xs text-stone-500 max-w-xs mx-auto">
-                Cảm ơn quý khách đã dùng bữa tại {restaurantInfo.name}. Hẹn gặp lại quý khách lần sau!
-              </p>
-              <div className="pt-3">
+              
+              <div>
+                <h3 className="font-extrabold text-stone-900 text-lg sm:text-xl">
+                  Thanh Toán Thành Công!
+                </h3>
+                <p className="text-xs text-emerald-700 font-bold mt-1">
+                  Đã ghi nhận số tiền {formatVND(paidSummary?.amount || finalTotal)}
+                </p>
+              </div>
+
+              {/* Kitchen Confirmation Card */}
+              <div className="p-3.5 bg-gradient-to-r from-orange-50 to-amber-50 rounded-2xl border border-orange-200 text-left space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-2xs font-extrabold px-2.5 py-0.5 rounded-full bg-orange-600 text-white flex items-center gap-1">
+                    <Flame className="w-3 h-3 animate-bounce" />
+                    <span>ĐÃ CHUYỂN TỚI BẾP (KDS)</span>
+                  </span>
+                  <span className="text-2xs font-bold text-stone-600">
+                    Bàn {activeTableNumber}
+                  </span>
+                </div>
+                <p className="text-xs font-bold text-stone-800">
+                  ⚡ Bếp đã nhận đơn <span className="text-orange-600">{paidSummary?.orderNumber}</span> và đang chuẩn bị chế biến!
+                </p>
+                {paidSummary?.itemsSummary && (
+                  <p className="text-2xs text-stone-600 line-clamp-2 bg-white/70 p-2 rounded-xl border border-orange-100">
+                    🍲 <strong>Món:</strong> {paidSummary.itemsSummary}
+                  </p>
+                )}
+              </div>
+
+              <div className="pt-2 space-y-2">
+                {onOpenOrderTracker && (
+                  <button
+                    onClick={() => {
+                      onClose();
+                      onOpenOrderTracker();
+                    }}
+                    className="w-full py-3 px-4 bg-orange-600 hover:bg-orange-700 text-white rounded-2xl font-bold text-xs sm:text-sm shadow-md shadow-orange-600/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
+                  >
+                    <ChefHat className="w-4 h-4" />
+                    <span>👨‍🍳 Xem Tiến Độ Nấu Món Tại Bếp</span>
+                  </button>
+                )}
+
                 <button
                   onClick={onClose}
-                  className="px-6 py-2.5 bg-stone-900 text-white rounded-xl text-xs font-semibold hover:bg-stone-800 transition-colors cursor-pointer"
+                  className="w-full py-2.5 px-4 bg-stone-100 hover:bg-stone-200 text-stone-800 rounded-2xl font-semibold text-xs border border-stone-300 transition-colors cursor-pointer"
                 >
-                  Đóng
+                  ➕ Tiếp Tục Gọi Thêm Món Vào Bàn
                 </button>
               </div>
             </div>

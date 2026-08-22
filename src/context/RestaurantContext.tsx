@@ -996,9 +996,9 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const cartTotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
-  // Orders for current active table
+  // Orders for current active table (includes unpaid & recently placed active orders so kitchen progress remains visible)
   const activeTableOrders = orders.filter(
-    o => o.tableNumber === activeTableNumber && o.paymentStatus === 'unpaid'
+    o => o.tableNumber === activeTableNumber && o.status !== 'cancelled'
   );
 
   // Submit Order
@@ -1310,6 +1310,17 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
 
     playNotificationSound('success');
+
+    // Trigger feedback alert for customer
+    const orderNumText = currentOrder?.orderNumber || `#${orderId.slice(-4)}`;
+    setKitchenLiveAlert({
+      tableNumber: tableNum,
+      orderId,
+      orderNumber: orderNumText,
+      status: currentOrder?.status === 'served' ? 'served' : 'cooking',
+      message: `👨‍🍳 Đơn ${orderNumText} đã thanh toán & chuyển thẳng đến Bếp (KDS) để chuẩn bị món!`,
+      timestamp: Date.now()
+    });
 
     broadcastRealtimeEvent({ 
       type: 'PAY_ORDER', 

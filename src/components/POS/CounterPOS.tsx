@@ -100,6 +100,7 @@ export const CounterPOS: React.FC = () => {
 
   const categories = [
     { id: 'all' as MealCategory, label: 'Tất cả món', icon: Utensils },
+    { id: 'sides_addons' as MealCategory, label: '🍚 Món Thêm & Ăn Kèm', icon: Sparkles },
     { id: 'rice_noodles' as MealCategory, label: 'Cơm & Phở Mì', icon: Soup },
     { id: 'main' as MealCategory, label: 'Món Chính', icon: ChefHat },
     { id: 'hotpot_grill' as MealCategory, label: 'Lẩu & Nướng', icon: Flame },

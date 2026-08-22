@@ -132,6 +132,7 @@ export const MenuAdmin: React.FC = () => {
 
   const getCategoryLabel = (cat: MealCategory) => {
     switch (cat) {
+      case 'sides_addons': return 'Món Thêm & Ăn Kèm';
       case 'hotpot_grill': return 'Lẩu & Nướng';
       case 'rice_noodles': return 'Cơm & Mì';
       case 'main': return 'Món Chính';
@@ -194,6 +195,7 @@ export const MenuAdmin: React.FC = () => {
           <div className="flex items-center space-x-1 overflow-x-auto scrollbar-none">
             {[
               { id: 'all', label: 'Tất cả' },
+              { id: 'sides_addons', label: 'Món Thêm & Kèm' },
               { id: 'hotpot_grill', label: 'Lẩu & Nướng' },
               { id: 'rice_noodles', label: 'Cơm & Mì' },
               { id: 'main', label: 'Món Chính' },
@@ -369,6 +371,7 @@ export const MenuAdmin: React.FC = () => {
                     onChange={(e) => setEditingDish({ ...editingDish, category: e.target.value as MealCategory })}
                     className="w-full px-3 py-2 rounded-xl border border-stone-300 focus:ring-2 focus:ring-amber-500 focus:outline-none bg-white"
                   >
+                    <option value="sides_addons">🍚 Món Thêm & Ăn Kèm</option>
                     <option value="hotpot_grill">Lẩu & Nướng</option>
                     <option value="rice_noodles">Cơm & Phở Mì</option>
                     <option value="main">Món Chính</option>
@@ -509,6 +512,7 @@ export const MenuAdmin: React.FC = () => {
                     onChange={(e) => setFormData({ ...formData, category: e.target.value as MealCategory })}
                     className="w-full px-3 py-2 rounded-xl border border-stone-300 focus:ring-2 focus:ring-amber-500 focus:outline-none bg-white"
                   >
+                    <option value="sides_addons">🍚 Món Thêm & Ăn Kèm</option>
                     <option value="hotpot_grill">Lẩu & Nướng</option>
                     <option value="rice_noodles">Cơm & Phở Mì</option>
                     <option value="main">Món Chính</option>
